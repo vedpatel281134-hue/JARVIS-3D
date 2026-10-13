@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S // 3D</title>
+<style>
+:root{--bg:#050d16;--line:#12384a;--cy:#00e5ff;--dim:#6fb3c4;--txt:#b9f4ff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 Consolas,"Cascadia Mono",monospace}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:14px;height:100%;padding:14px}
+#view{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:300px;
+  background:radial-gradient(circle at 50% 40%,#16303f,#050b12 75%)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#label{position:absolute;top:12px;left:14px;color:var(--cy);font-size:12px;pointer-events:none;z-index:2}
+#hint{position:absolute;bottom:14px;left:14px;color:var(--dim);font-size:11px;pointer-events:none;z-index:2}
+.btns{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;z-index:2}
+button{font:inherit;color:var(--cy);background:#00e5ff14;border:1px solid var(--cy);border-radius:6px;padding:5px 11px;cursor:pointer}
+button:hover{background:#00e5ff30}
+button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px}
+button.on{background:var(--cy);color:#001018}
+#scanline{position:absolute;left:0;right:0;top:0;height:3px;background:var(--cy);box-shadow:0 0 24px 4px var(--cy);display:none;pointer-events:none;z-index:2}
+#scanline.go{display:block;animation:sweep 1.6s ease-in-out 2 alternate}
+@keyframes sweep{from{top:0}to{top:calc(100% - 3px)}}
+.side{display:flex;flex-direction:column;gap:10px;min-height:0}
+.top{display:flex;justify-content:space-between;color:var(--cy);font-size:13px}
+.reactor{position:relative;height:130px;flex:none}
+.reactor i{position:absolute;left:50%;top:50%;border-radius:50%;translate:-50% -50%}
+.r1{width:124px;height:124px;border:3px dashed var(--cy);animation:spin 12s linear infinite}
+.r2{width:90px;height:90px;border:4px dotted #0091ea;animation:spin 7s linear infinite reverse}
+.r3{width:52px;height:52px;background:#00e5ff22;border:2px solid var(--cy);box-shadow:0 0 28px var(--cy)}
+.reactor b{position:absolute;inset:0;display:grid;place-items:center;font-size:24px;color:var(--cy)}
+@keyframes spin{to{rotate:360deg}}
+#out{flex:1;min-height:0;overflow:auto;white-space:pre-wrap;border:1px solid var(--line);border-radius:8px;padding:10px;background:#00000030;color:#80f0ff;font-size:13px}
+.row{display:flex;gap:6px}
+#in{flex:1;min-width:0;font:inherit;color:#fff;background:#ffffff0d;border:1px solid var(--cy);border-radius:6px;padding:7px 9px;caret-color:var(--cy)}
+.send{background:var(--cy);color:#001018;font-weight:700}
+@media(max-width:820px){.app{grid-template-columns:1fr;grid-template-rows:55% 45%}}
+@media(prefers-reduced-motion:reduce){.reactor i,#scanline.go{animation:none}}
+#tagLines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+#tagLines line{stroke:var(--cy);stroke-width:1.2;opacity:.85}
+#tagLines circle{fill:var(--cy);stroke:#fff;stroke-width:1.5}
+#tags{position:absolute;inset:0;pointer-events:none;z-index:1}
+.tag{position:absolute;width:140px;padding:5px 8px;border:1px solid var(--cy);background:#04141ccc;border-radius:6px;cursor:pointer;pointer-events:auto;line-height:1.25}
+.tag b{display:block;color:var(--cy);font-size:12px}
+.tag span{color:var(--dim);font-size:11px}
+.tag:hover,.tag.sel{background:#00e5ff30}
+.tag.sel{box-shadow:0 0 12px var(--cy)}
+.tag p{display:none;margin:7px 0 0;color:var(--txt);font-size:12.5px;line-height:1.5}
+.tag.open{width:min(300px,44%);background:#04141cf0;box-shadow:0 0 16px #00e5ff55}
+.tag.open p{display:block}
+#tagLines line.act{stroke-width:2.4;opacity:1}
+#view.drop{outline:2px dashed var(--cy);outline-offset:-6px}
+#lock{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#16303f,#050b12 75%)}
+.lockbox{display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px;text-align:center;max-width:460px}
+.lt{color:var(--cy);font-size:16px;letter-spacing:3px}
+.vwrap{position:relative;width:240px;height:240px;margin:14px}
+.vwrap video{width:100%;height:100%;object-fit:cover;border-radius:50%;transform:scaleX(-1);background:#00000060;border:2px solid var(--cy)}
+.vwrap i{position:absolute;inset:-14px;border:3px dashed var(--cy);border-radius:50%;animation:spin 12s linear infinite}
+#lmsg{color:var(--txt);min-height:44px}
+#lmsg.ok{color:#7cffb2}
+#lmsg.bad{color:#ff7b7b}
+.lbtns{display:flex;gap:8px}
+@media(prefers-reduced-motion:reduce){.vwrap i{animation:none}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<input type="file" id="fileIn" accept=".glb" multiple hidden>
+<div id="lock">
+  <div class="lockbox">
+    <div class="lt">J.A.R.V.I.S // FACE ID</div>
+    <div class="vwrap"><video id="cam" autoplay playsinline muted></video><i></i></div>
+    <div id="lmsg">STARTING...</div>
+    <div class="lbtns"><button id="bReg" hidden>REGISTER MY FACE</button><button id="bRetry" hidden>RETRY</button></div>
+  </div>
+</div>
+<div class="app">
+  <div id="view">
+    <div id="label">LOADING ENGINE MODEL...</div>
+    <div id="scanline"></div>
+    <svg id="tagLines"></svg><div id="tags"></div>
+    <div id="hint">DRAG: ROTATE  |  WHEEL: ZOOM  |  KEYS: 1 2 3 4 SPACE H L P S F</div>
+    <div class="btns">
+      <button id="bEngine">ENGINE</button><button id="bCar">CAR</button><button id="bArc">ARC</button><button id="bArc2">ARC 2</button>
+      <button id="bSpin" class="on">SPIN</button><button id="bHolo">HOLO</button><button id="bLight" class="on">LIGHT</button><button id="bParts" class="on">PARTS</button>
+      <button id="bScan">SCAN</button><button id="bReset">RESET</button><button id="bOpen">OPEN</button><button id="bFull">FULL</button>
+    </div>
+  </div>
+  <div class="side">
+    <div class="top"><span>J.A.R.V.I.S // 3D ANALYSIS</span><span id="clock"></span></div>
+    <div class="reactor"><i class="r1"></i><i class="r2"></i><i class="r3"></i><b>V</b></div>
+    <div id="out" aria-live="polite"></div>
+    <div class="row">
+      <input id="in" placeholder="Type a command (try: help)" autocomplete="off">
+      <button id="mic">MIC</button><button class="send" id="send">SEND</button>
+    </div>
+  </div>
+</div>
+<script>
+setTimeout(function () {
+  if (!window.__jarvis) {
+    document.getElementById('out').textContent += 'ERROR > The 3D library did not load from cdn.jsdelivr.net. Check your internet connection, VPN or ad-blocker, then press F5.\n';
+    document.getElementById('label').textContent = '3D LIBRARY FAILED TO LOAD';
+  }
+}, 10000);
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+window.__jarvis = true;
+const NO_FACE = true;
+const $ = id => document.getElementById(id), out = $('out');
+const log = t => { out.textContent += t + '\n'; out.scrollTop = out.scrollHeight; };
+const say = (t, speak = true) => { log('JARVIS > ' + t); if (speak && 'speechSynthesis' in window) speechSynthesis.speak(new SpeechSynthesisUtterance(t)); };
+addEventListener('error', e => log('ERROR > ' + e.message));
+addEventListener('unhandledrejection', e => log('ERROR > ' + ((e.reason && e.reason.message) || e.reason)));
+const fmt = n => Math.round(n).toLocaleString();
+
+// ---------- scene ----------
+const view = $('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(45, 1, 0.05, 50);
+const HOME = new THREE.Vector3(2.6, 1.3, 3.4);
+cam.position.copy(HOME);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const sun = new THREE.DirectionalLight(0xffffff, 2); sun.position.set(3, 4, 2); scene.add(sun);
+const ctl = new OrbitControls(cam, renderer.domElement);
+Object.assign(ctl, { enableDamping: true, autoRotate: true, autoRotateSpeed: 1.2, minDistance: 1.2, maxDistance: 9 });
+new ResizeObserver(() => {
+  const w = view.clientWidth, h = view.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+}).observe(view);
+// ---------- arc reactor light ----------
+let lightOn = true;
+const arcFx = new THREE.Group(); arcFx.visible = false; scene.add(arcFx);
+const arcLights = [];
+for (const z of [1.4, -1.4]) {
+  const l = new THREE.PointLight(0x00e5ff, 0, 8, 1.6); l.position.set(0, 0, z); arcFx.add(l); arcLights.push(l);
+}
+const arcCore = new THREE.PointLight(0x66f3ff, 0, 5, 2); arcCore.position.set(0, 0, 0); arcFx.add(arcCore); arcLights.push(arcCore);
+const glowTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d'), g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, 'rgba(220,255,255,1)'); g.addColorStop(0.25, 'rgba(0,229,255,0.65)');
+  g.addColorStop(0.6, 'rgba(0,150,255,0.18)'); g.addColorStop(1, 'rgba(0,100,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(c);
+})();
+const arcGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false }));
+arcGlow.scale.setScalar(2.6); arcFx.add(arcGlow);
+function applyLight() {
+  arcFx.visible = lightOn && isArc(active) && M[active].state === 'ready';
+  $('bLight').classList.toggle('on', lightOn);
+}
+
+renderer.setAnimationLoop(() => {
+  ctl.update();
+  if (arcFx.visible) {
+    const t = performance.now() / 1000, p = 0.5 + 0.5 * Math.sin(t * 2.2);
+    arcLights[0].intensity = arcLights[1].intensity = 25 + 20 * p;
+    arcCore.intensity = 10 + 10 * p;
+    arcGlow.material.opacity = 0.65 + 0.3 * p;
+    arcGlow.scale.setScalar(2.3 + 0.5 * p);
+  }
+  updateTags();
+  renderer.render(scene, cam);
+});
+
+// ---------- models ----------
+const M = { engine: { file: 'Car_Engine.glb', title: 'ENGINE' }, car: { file: 'porsche_gt3.glb', title: 'PORSCHE GT3' }, arc: { file: 'arc_reactor.glb', title: 'ARC REACTOR' }, arc2: { file: 'arc_reactor_2.glb', title: 'ARC REACTOR 2' } };
+const ACTUAL = {};
+const isArc = k => k === 'arc' || k === 'arc2';
+let active = 'engine', holo = false, scanning = false;
+const holoMat = new THREE.MeshStandardMaterial({ color: 0x00b8d4, emissive: 0x00303c, roughness: 0.55, metalness: 0.1 });
+
+// Loader that understands Draco and Meshopt compressed models
+const gltfLoader = new GLTFLoader()
+  .setDRACOLoader(new DRACOLoader().setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/'))
+  .setMeshoptDecoder(MeshoptDecoder);
+
+async function load(key, file) {
+  const m = M[key]; m.state = 'loading';
+  let blobUrl = null;
+  try {
+    let url;
+    if (file) { blobUrl = URL.createObjectURL(file); url = blobUrl; ACTUAL[m.file] = file.name; }
+    else {
+      // GitHub Pages version: place model files in the repository's models/ folder.
+      url = './models/' + encodeURIComponent(m.file);
+      ACTUAL[m.file] = m.file;
+    }
+    // the loader streams the file itself (no extra copy of a huge file in memory)
+    const g = await gltfLoader.loadAsync(url, ev => {
+      if (active !== key) return;
+      $('label').textContent = ev.total && ev.loaded >= ev.total ? `PROCESSING ${m.title} MODEL...`
+        : `LOADING ${m.title} MODEL ` + (ev.total ? Math.round(ev.loaded / ev.total * 100) + '%' : (ev.loaded / 1048576).toFixed(0) + ' MB');
+    });
+    const root = g.scene, box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+    root.position.sub(c);
+    const wrap = new THREE.Group(); wrap.add(root);
+    wrap.scale.setScalar(2 / Math.max(size.x, size.y, size.z));
+    let tris = 0, verts = 0;
+    root.traverse(o => { if (o.isMesh) {
+      o.userData.mat = o.material;
+      verts += o.geometry.attributes.position.count;
+      tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3;
+    } });
+    if (tris <= 600000) root.traverse(o => { if (o.isMesh) (Array.isArray(o.material) ? o.material : [o.material]).forEach(mt => { mt.side = THREE.DoubleSide; }); });
+    else log(`NOTE > ${m.title} is a heavy model (${fmt(tris)} triangles). Using light rendering so it stays smooth.`);
+    wrap.visible = false; scene.add(wrap);
+    Object.assign(m, { wrap, size, tris, verts, state: 'ready' });
+    return true;
+  } catch (e) {
+    m.state = String(e.message) === 'HTTP 404' ? 'missing' : 'failed';
+    if (m.state === 'failed') log(`ERROR > ${m.file}: ${e.message}`);
+    return false;
+  } finally { if (blobUrl) URL.revokeObjectURL(blobUrl); }
+}
+
+function show(key) {
+  const m = M[key];
+  if (m.state === 'missing' || m.state === 'failed') {
+    if (!m.retried) { m.retried = true; m.state = undefined; }          // look on the disk once more
+    else {
+      say((m.state === 'missing' ? `I can't find ${m.file} on this computer.` : `The ${m.title} model failed to load.`) + ' Put the file in the script folder and restart, or press OPEN.');
+      return;
+    }
+  }
+  active = key; tagSel = -1; tagNext = 0;
+  if (!m.state) {
+    $('label').textContent = `LOADING ${m.title} MODEL...`; say(`Loading the ${m.title} model.`);
+    load(key).then(ok => {
+      if (ok) { if (active === key) show(key); }
+      else {
+        say(m.state === 'missing' ? `I can't find ${m.file} on this computer. Put it in the script folder and restart, or press OPEN.` : `I couldn't load the ${m.title} model. See the error above.`);
+        m.retried = true;
+      }
+    });
+    return;
+  }
+  if (m.state !== 'ready') { $('label').textContent = `LOADING ${m.title} MODEL...`; return say(`The ${m.title} model is still loading.`); }
+  for (const k in M) if (M[k].wrap) M[k].wrap.visible = k === key;
+  applyHolo(); applyLight(); applyPerf(m);
+  if (isArc(key) && !m.tags && !m.tagsBuilding) {
+    m.tagsBuilding = true;
+    setTimeout(() => { try { buildTags(m); } catch (e) { log('ERROR > part labels: ' + e.message); } }, 80);
+  }
+  $('label').textContent = `${m.title}  //  ${fmt(m.tris)} POLYGONS`;
+  $('bEngine').classList.toggle('on', key === 'engine');
+  $('bCar').classList.toggle('on', key === 'car'); $('bArc').classList.toggle('on', key === 'arc'); $('bArc2').classList.toggle('on', key === 'arc2');
+}
+function applyPerf(m) {
+  const ratio = m.tris > 600000 ? 1 : Math.min(devicePixelRatio, 1.5);
+  if (renderer.getPixelRatio() !== ratio) { renderer.setPixelRatio(ratio); renderer.setSize(view.clientWidth, view.clientHeight, false); }
+}
+function applyHolo() {
+  const w = M[active].wrap; if (!w) return;
+  w.traverse(o => { if (o.isMesh) o.material = holo ? holoMat : o.userData.mat; });
+  $('bHolo').classList.toggle('on', holo);
+}
+
+// ---------- scan ----------
+const REPORT = {
+  engine: [
+    '[2] WHAT IT IS', '  A car engine is an internal combustion engine. It burns fuel and air in cylinders and turns that energy into rotation.', '',
+    '[3] MAIN PARTS', '  Engine block - holds the cylinders', '  Pistons + connecting rods - burn pressure becomes motion',
+    '  Crankshaft - turns up/down motion into rotation', '  Cylinder head - valves, spark plugs or injectors',
+    '  Camshaft + valves - let air in and exhaust out', '  Timing belt/chain - keeps crank and cam in sync',
+    '  Intake + exhaust manifolds - air in, gases out', '  Oil pan + pump, water pump + radiator - lubrication and cooling',
+    '  Flywheel, alternator, starter, optional turbo', '',
+    '[4] FOUR-STROKE CYCLE', '  Intake > Compression > Power > Exhaust', '',
+    '[5] TYPICAL FIGURES (general)', '  Idle 600-900 rpm | petrol max 6000-7000 rpm', '  Compression: petrol 9-12:1, diesel 14-22:1', '  Coolant about 90-105 C | efficiency 25-40 %', '',
+    '[6] BASIC CARE (follow your manual)', '  Oil + filter 5,000-10,000 km | spark plugs 40,000-100,000 km', '  Timing belt about 100,000 km | coolant every 2-5 years'],
+  arc: [
+    '[2] WHAT IT IS', '  The arc reactor is a fictional compact power source from the Iron Man stories. No such device exists in real life.', '',
+    '[3] IN THE STORIES', '  A tiny fusion-style reactor in a ring housing', '  Powers the suit and, in the story, Tony Stark himself',
+    '  Typical design: a ring of coils around a glowing core', '',
+    '[4] REAL-WORLD COUNTERPART', '  Fusion power: tokamaks and stellarators hold plasma hotter than 100 million C with magnetic fields',
+    '  ITER (under construction) targets 500 MW out for 50 MW of heating power', '  In Dec 2022 the US National Ignition Facility got more fusion energy out than laser energy in',
+    '  Compact, pocket-sized fusion does not exist yet', '',
+    '[5] NOTE', '  The file is one unlabeled mesh. The PARTS labels are placed from the typical arc reactor layout, not read from the file.'],
+  car: [
+    '[2] WHAT IT IS', '  The Porsche 911 GT3 is the track-focused 911, road legal but built for circuits.', '',
+    '[3] KEY FEATURES', '  Naturally aspirated flat-six behind the rear axle', '  Rear-wheel drive, PDK dual-clutch (manual on recent models)',
+    '  Big rear wing, front splitter, underbody aero', '  Motorsport suspension and rear-axle steering', '  Large brakes, ceramic (PCCB) optional', '',
+    '[4] TYPICAL FIGURES (recent 992 GT3, approx.)', '  4.0 L flat-six, about 9,000 rpm redline', '  About 510 PS (375 kW), 470 Nm',
+    '  0-100 km/h about 3.4 s | top speed about 318 km/h', '  Weight about 1,400-1,500 kg | length about 4.57 m', '  Older generations differ.', '',
+    '[5] BASIC CARE (follow your manual)', '  Service about yearly or 20,000 km, sooner after track use', '  Brake fluid about every 2 years']
+};
+REPORT.arc2 = REPORT.arc;
+function scan() {
+  const m = M[active];
+  if (m.state !== 'ready') return say('No model is loaded.');
+  if (scanning) return;
+  scanning = true;
+  say(`Scanning the ${m.title.toLowerCase()}...`);
+  const sl = $('scanline'); sl.classList.remove('go'); void sl.offsetWidth; sl.classList.add('go');
+  setTimeout(() => {
+    sl.classList.remove('go');
+    const s = m.size, k = Math.max(s.x, s.y, s.z);
+    const L = [`=== ${m.title} SCAN REPORT ===`, '', '[1] MODEL DATA (from your file)', `  File     : ${ACTUAL[m.file] || m.file}`,
+      `  Polygons : ${fmt(m.tris)} triangles`, `  Vertices : ${fmt(m.verts)}`,
+      `  Size ratio (x:y:z): ${(s.x / k).toFixed(2)} : ${(s.y / k).toFixed(2)} : ${(s.z / k).toFixed(2)}`,
+      '  The file is ONE unlabeled mesh, so exact make, generation and condition cannot be read from it.', '',
+      ...REPORT[active], '', '=== END OF REPORT ==='];
+    let i = 0;
+    const t = setInterval(() => {
+      if (i < L.length) return log(L[i++]);
+      clearInterval(t); scanning = false;
+      say({ car: `Scan complete. Going by the file name, this is a Porsche 911 GT3 model with ${fmt(m.tris)} polygons.`,
+            arc: `Scan complete. This is an arc reactor model with ${fmt(m.tris)} polygons. It is a fictional power source from the Iron Man stories.`,
+            engine: `Scan complete. This is a car engine model with ${fmt(m.tris)} polygons.` }[active === 'arc2' ? 'arc' : active] + ' The full report is in the console.');
+    }, 70);
+  }, 3300);
+}
+
+// ---------- commands ----------
+function handle(raw) {
+  const c = raw.trim().toLowerCase(); if (!c) return;
+  log('YOU    > ' + raw);
+  const v = '((show|load|display|switch to|view|open) )?(the )?';
+  let q;
+  if (/^(hi|hello|hey)\b/.test(c)) say('Hello. How can I assist you?');
+  else if (new RegExp('^' + v + '(car )?engine( model)?$').test(c)) show('engine');
+  else if (new RegExp('^' + v + '(porsche|gt3|porsche gt3|car|car model|porsche model)$').test(c)) show('car');
+  else if (new RegExp('^' + v + '(arc reactor 2|arc 2|reactor 2|second arc( reactor)?|arc reactor two|arc two)$').test(c)) show('arc2');
+  else if (new RegExp('^' + v + '(arc reactor|arc|reactor)$').test(c)) show('arc');
+  else if (/^(open file|load file|browse|open)$/.test(c)) pickFile(null);
+  else if (/^(full ?screen)/.test(c)) fullscreen();
+  else if (/^(rotate|spin)/.test(c)) { ctl.autoRotate = true; $('bSpin').classList.add('on'); say('Rotating.'); }
+  else if (/^(stop|halt|freeze|pause)/.test(c)) { ctl.autoRotate = false; $('bSpin').classList.remove('on'); say('Rotation stopped.'); }
+  else if (/^(faster|speed up)/.test(c)) { ctl.autoRotateSpeed = Math.min(ctl.autoRotateSpeed * 1.6, 12); say('Faster.'); }
+  else if (/^(slower|slow down)/.test(c)) { ctl.autoRotateSpeed = Math.max(ctl.autoRotateSpeed / 1.6, 0.2); say('Slower.'); }
+  else if (/^zoom in/.test(c)) { cam.position.multiplyScalar(0.8); say('Zooming in.'); }
+  else if (/^zoom out/.test(c)) { cam.position.multiplyScalar(1.25); say('Zooming out.'); }
+  else if (/^reset/.test(c)) { cam.position.copy(HOME); ctl.target.set(0, 0, 0); ctl.autoRotate = true; $('bSpin').classList.add('on'); say('View reset.'); }
+  else if (/^(hologram|holo|blueprint|x-?ray)/.test(c)) { holo = !holo; applyHolo(); say(holo ? 'Hologram mode on.' : 'Hologram mode off.'); }
+  else if (/^(tour|auto)/.test(c)) {
+    tagAuto = !tagAuto; tagNext = 0; if (tagAuto) { tagsOn = true; $('bParts').classList.add('on'); }
+    say(!isArc(active) ? 'The part tour runs on the arc reactor.' : tagAuto ? 'Part tour on.' : 'Part tour off. Click a label to read about a part.');
+  }
+  else if (/^(parts|labels?|annotate)/.test(c)) {
+    tagsOn = !tagsOn; $('bParts').classList.toggle('on', tagsOn);
+    if (tagsOn) { tagAuto = true; tagNext = 0; tagSel = -1; }
+    say(!isArc(active) ? 'Part labels show on the arc reactor.' : tagsOn ? 'Part labels on. I will point out each part. Click a label to read it yourself. Positions are estimated from the typical arc reactor layout.' : 'Part labels off.');
+  }
+  else if (/^(light|glow)/.test(c)) {
+    lightOn = !lightOn; applyLight();
+    say(!isArc(active) ? 'The reactor light is ' + (lightOn ? 'on' : 'off') + '. It shows on the arc reactor.' : (lightOn ? 'Reactor light on.' : 'Reactor light off.'));
+  }
+  else if (/^(texture|textured|normal|realistic)/.test(c)) { holo = false; applyHolo(); say('Restoring textures.'); }
+  else if (/^scan/.test(c)) scan();
+  else if (/^(info|stats|details|(engine|car|model) (info|stats|details))/.test(c)) {
+    const m = M[active]; say(m.state === 'ready' ? `${m.title} model: ${fmt(m.tris)} triangles, ${fmt(m.verts)} vertices.` : 'No model is loaded.');
+  }
+  else if (/^(what.*time|time)/.test(c)) say('It is ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+  else if (/^(what.*date|date|today)/.test(c)) say('Today is ' + new Date().toLocaleDateString([], { dateStyle: 'full' }));
+  else if ((q = c.match(/^(search|google) (.+)/))) { open('https://www.google.com/search?q=' + encodeURIComponent(q[2])); say('Searching for ' + q[2] + '.'); }
+  else if ((q = c.match(/^(play|youtube) (.+)/))) { open('https://www.youtube.com/results?search_query=' + encodeURIComponent(q[2])); say('Looking up ' + q[2] + ' on YouTube.'); }
+  else if ((q = c.match(/^say (.+)/))) say(q[1]);
+  else if (/^(help|commands)/.test(c)) say('Models: show engine, show car, show arc reactor, show arc reactor 2, open (choose a .glb file), scan, info, fullscreen. View: rotate, stop, faster, slower, zoom in, zoom out, reset, hologram, light, parts, tour, texture. Other: time, date, search cats, play lofi, say hello.');
+  else say("I don't recognise that command. Say help for options.");
+}
+
+// ---------- UI wiring ----------
+const send = () => { handle($('in').value); $('in').value = ''; };
+$('send').onclick = send;
+$('in').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+$('bEngine').onclick = () => handle('show engine');
+$('bCar').onclick = () => handle('show car'); $('bArc').onclick = () => handle('show arc reactor'); $('bArc2').onclick = () => handle('show arc reactor 2');
+const fullscreen = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+$('bFull').onclick = fullscreen;
+addEventListener('keydown', e => {
+  if (locked || e.target.tagName === 'INPUT') return;
+  const k = { 1: 'engine', 2: 'car', 3: 'arc', 4: 'arc2' }[e.key];
+  if (k) show(k); else if (e.key === ' ') { e.preventDefault(); handle(ctl.autoRotate ? 'stop' : 'rotate'); }
+  else if (e.key === 'h') handle('hologram'); else if (e.key === 'l') handle('light'); else if (e.key === 'p') handle('parts'); else if (e.key === 's') handle('scan'); else if (e.key === 'f') fullscreen();
+});
+$('bSpin').onclick = () => handle(ctl.autoRotate ? 'stop' : 'rotate');
+$('bHolo').onclick = () => handle('hologram'); $('bLight').onclick = () => handle('light'); $('bParts').onclick = () => handle('parts'); $('bScan').onclick = () => handle('scan'); $('bReset').onclick = () => handle('reset');
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+$('mic').onclick = () => {
+  if (!SR) return say('Voice input needs Google Chrome.');
+  const r = new SR(); r.lang = 'en-US'; r.onresult = e => handle(e.results[0][0].transcript); r.onerror = () => say("I didn't catch that."); r.start();
+};
+setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString([], { hour12: false }); }, 1000);
+
+// ---------- choose / drop your own .glb (last resort only) ----------
+let pickFor = null;
+function pickFile(key) { pickFor = key; const f = $('fileIn'); f.value = ''; f.click(); }
+function guessSlot(name) {
+  const n = name.toLowerCase();
+  if (/engine/.test(n)) return 'engine';
+  if (/porsche|gt3|car/.test(n)) return 'car';
+  if (/reactor|arc/.test(n)) {
+    const first = ACTUAL[M.arc.file];
+    return (/2|two|\(1\)|copy/.test(n) || (M.arc.state === 'ready' && first && first.toLowerCase() !== n)) ? 'arc2' : 'arc';
+  }
+  return active;
+}
+function loadFromFile(key, f) {
+  const m = M[key];
+  if (m.wrap) { m.wrap.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); scene.remove(m.wrap); }
+  if (m.tagWrap) m.tagWrap.remove();
+  if (m.tagG) m.tagG.remove();
+  for (const k of ['wrap', 'size', 'tris', 'verts', 'state', 'tags', 'tagWrap', 'tagG', 'tagsBuilding']) delete m[k];
+  active = key; tagSel = -1; tagNext = 0;
+  $('label').textContent = `LOADING ${m.title} MODEL...`;
+  say(`Loading ${f.name} as ${m.title}.`);
+  load(key, f).then(ok => {
+    if (ok) { if (active === key) show(key); }
+    else say(`I couldn't load ${f.name}. See the error above.`);
+  });
+}
+function handleFiles(files, forced) {
+  const list = [...files].filter(f => /\.glb$/i.test(f.name));
+  if (!list.length) return say('Please choose a .glb file.');
+  list.forEach((f, i) => loadFromFile(i === 0 && forced ? forced : guessSlot(f.name), f));
+}
+$('fileIn').onchange = e => { handleFiles(e.target.files, pickFor); pickFor = null; };
+$('bOpen').onclick = () => pickFile(null);
+view.addEventListener('dragover', e => { e.preventDefault(); view.classList.add('drop'); });
+view.addEventListener('dragleave', () => view.classList.remove('drop'));
+view.addEventListener('drop', e => { e.preventDefault(); view.classList.remove('drop'); handleFiles(e.dataTransfer.files, null); });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => e.preventDefault());
+
+// ---------- arc reactor part labels ----------
+// r = distance from the center (0 = middle, 1 = outer edge), a = angle in degrees around the ring,
+// side = 1 front face, -1 back face. Tweak these numbers if a label points at the wrong spot.
+const PARTS = [
+  { name: 'CORE', sub: 'power source', r: 0, a: 0, side: 1,
+    text: 'The core is the glowing heart of the arc reactor and the part that actually produces the energy. In the Iron Man stories it is a palladium core, which slowly poisons Tony Stark and is later replaced by a new element he creates. Everything else in the reactor exists to hold, shape or draw power from this one spot.' },
+  { name: 'CORE HOUSING', sub: 'holds the core', r: 0.3, a: 100, side: 1,
+    text: 'The core housing is the ring that wraps around the core. It holds the core firmly in the center, keeps it lined up with the coils, and in the story design it also shields the parts around it from the heat and energy the core gives off.' },
+  { name: 'COIL RING', sub: 'electromagnets', r: 0.62, a: -30, side: 1,
+    text: 'The coil ring is a set of electromagnetic coils arranged in segments around the core. In the stories they create the strong magnetic field that contains and steers the reaction, much like the magnets in a real fusion tokamak, and they carry the power out toward the suit.' },
+  { name: 'OUTER HOUSING', sub: 'shell and mount', r: 0.96, a: 160, side: 1,
+    text: 'The outer housing is the shell of the reactor. It protects everything inside from impacts, gives the reactor its ring shape, and lets it lock into the chest plate or the suit so it can be removed and swapped.' },
+  { name: 'REAR PLATE', sub: 'power connection', r: 0.6, a: 200, side: -1,
+    text: 'The rear plate is the back of the reactor, where it connects to the suit. In the stories the power leaves the reactor here through contact points and cables that run into the armor. Rotate the model to the back to see this label point at it.' }
+];
+let tagsOn = true, tagSel = -1, tagAuto = true, tagNext = 0;
+const tagBox = $('tags'), tagSvg = $('tagLines'), SVGNS = 'http://www.w3.org/2000/svg';
+
+function buildTags(m) {
+  m.tags = [];
+  m.tagWrap = document.createElement('div'); tagBox.appendChild(m.tagWrap);
+  m.tagG = document.createElementNS(SVGNS, 'g'); tagSvg.appendChild(m.tagG);
+  const wrap = m.wrap; wrap.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(wrap), sz = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  const dims = ['x', 'y', 'z'].sort((p, q) => sz[p] - sz[q]);        // thinnest axis = the reactor's axis
+  const unit = k => new THREE.Vector3(k === 'x' ? 1 : 0, k === 'y' ? 1 : 0, k === 'z' ? 1 : 0);
+  const n = unit(dims[0]), u = unit(dims[1]), v = unit(dims[2]);
+  const R = Math.max(sz[dims[1]], sz[dims[2]]) / 2, T = sz[dims[0]];
+  const ray = new THREE.Raycaster();
+  PARTS.forEach((p, i) => {
+    const th = p.a * Math.PI / 180;
+    const base = c.clone().addScaledVector(u, Math.cos(th) * p.r * R).addScaledVector(v, Math.sin(th) * p.r * R);
+    const dir = n.clone().multiplyScalar(-p.side);
+    ray.set(base.clone().addScaledVector(n, p.side * (T + R)), dir);   // shoot from outside onto the real surface
+    const hit = ray.intersectObject(wrap, true)[0];
+    let pt, nr;
+    if (hit) {
+      pt = hit.point.clone();
+      nr = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : n.clone().multiplyScalar(p.side);
+      if (nr.dot(dir) > 0) nr.negate();
+    } else { pt = base.clone().addScaledVector(n, p.side * T / 2); nr = n.clone().multiplyScalar(p.side); }
+    const el = document.createElement('div'); el.className = 'tag';
+    const b = document.createElement('b'); b.textContent = p.name;
+    const sp = document.createElement('span'); sp.textContent = p.sub;
+    const pp = document.createElement('p'); pp.textContent = p.text;
+    el.append(b, sp, pp);
+    el.onclick = () => selectTag(i);
+    m.tagWrap.appendChild(el);
+    const line = document.createElementNS(SVGNS, 'line'), dot = document.createElementNS(SVGNS, 'circle');
+    dot.setAttribute('r', '4');
+    m.tagG.append(line, dot);
+    m.tags.push({ p, pt, nr, el, line, dot });
+  });
+}
+
+function selectTag(i) {
+  tagAuto = false;                              // manual choice stops the automatic tour
+  if (tagSel === i) { tagSel = -1; return; }    // click an open label to close it
+  tagSel = i;
+  const t = M[active].tags[i];
+  say(`${t.p.name}. ${t.p.text}`);
+}
+
+function updateTags() {
+  for (const k in M) if (M[k].tagWrap) { const d = k === active ? '' : 'none'; M[k].tagWrap.style.display = d; M[k].tagG.style.display = d; }
+  const tagList = isArc(active) && M[active].state === 'ready' && M[active].tags ? M[active].tags : [];
+  const on = tagsOn && tagList.length > 0;
+  tagBox.style.display = tagSvg.style.display = on ? '' : 'none';
+  if (!on) return;
+  const W = view.clientWidth, H = view.clientHeight, now = performance.now(), vis = [];
+  for (const t of tagList) {
+    const pr = t.pt.clone().project(cam);
+    const toCam = cam.position.clone().sub(t.pt).normalize();
+    t.vis = pr.z < 1 && t.nr.dot(toCam) > 0.2 && Math.abs(pr.x) < 1.05 && Math.abs(pr.y) < 1.05;
+    if (t.vis) { t.sx = (pr.x * 0.5 + 0.5) * W; t.sy = (-pr.y * 0.5 + 0.5) * H; vis.push(t); }
+    else { t.el.style.display = t.line.style.display = t.dot.style.display = 'none'; }
+  }
+  // automatic tour: point at one visible part at a time and show its paragraph
+  if (tagAuto && (now > tagNext || (tagSel >= 0 && !tagList[tagSel].vis))) {
+    const n = tagList.length;
+    for (let st = 1; st <= n; st++) {
+      const j = ((tagSel < 0 ? -1 : tagSel) + st) % n;
+      if (tagList[j].vis) { tagSel = j; tagNext = now + 7000; break; }
+    }
+  }
+  tagList.forEach((t, k) => { t.el.classList.toggle('open', k === tagSel); t.el.classList.toggle('sel', k === tagSel); t.line.classList.toggle('act', k === tagSel); });
+  for (const right of [false, true]) {
+    const grp = vis.filter(t => (t.sx > W / 2) === right).sort((a, b) => a.sy - b.sy);
+    let prevBottom = 40;
+    for (const t of grp) {
+      t.el.style.display = ''; t.line.style.display = t.dot.style.display = '';
+      t.el.style.left = right ? 'auto' : '14px';
+      t.el.style.right = right ? '14px' : 'auto';
+      const w = t.el.offsetWidth, h = t.el.offsetHeight;
+      const top = Math.max(prevBottom, Math.min(t.sy - 18, H - h - 90));
+      prevBottom = top + h + 8;
+      t.el.style.top = top + 'px';
+      const ex = right ? W - 14 - w : 14 + w, ey = top + 18;
+      t.line.setAttribute('x1', t.sx); t.line.setAttribute('y1', t.sy); t.line.setAttribute('x2', ex); t.line.setAttribute('y2', ey);
+      t.dot.setAttribute('cx', t.sx); t.dot.setAttribute('cy', t.sy);
+    }
+  }
+}
+
+// ---------- face id ----------
+const FACE_VER = '1.7.12';
+const FACE_LIB = `https://cdn.jsdelivr.net/npm/@vladmandic/face-api@${FACE_VER}/dist/face-api.js`;
+const FACE_MODELS = `https://cdn.jsdelivr.net/npm/@vladmandic/face-api@${FACE_VER}/model/`;
+const MATCH_DIST = 0.5;                       // lower = stricter (0.6 is the library default)
+let locked = true, gateRun = 0, camStream = null;
+const lockEl = $('lock'), appEl = document.querySelector('.app'), camEl = $('cam');
+appEl.inert = true;                           // nothing in the app can be used while locked
+const lockMsg = (t, cls = '') => { const m = $('lmsg'); m.textContent = t; m.className = cls; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const loadScript = src => new Promise((res, rej) => {
+  const s = document.createElement('script'); s.src = src; s.onload = res;
+  s.onerror = () => rej(new Error('Could not load ' + src + ' (check internet / ad-blocker)'));
+  document.head.appendChild(s);
+});
+const detect = () => faceapi.detectSingleFace(camEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptor();
+const stopCam = () => { if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; };
+
+function unlock() {
+  locked = false; stopCam();
+  lockMsg('IDENTITY CONFIRMED', 'ok');
+  setTimeout(() => { lockEl.style.display = 'none'; appEl.inert = false; startApp(); }, 600);
+}
+
+async function verify(ref, run) {
+  let hits = 0;
+  lockMsg('LOOK AT THE CAMERA...');
+  while (locked && run === gateRun) {
+    const d = await detect();
+    if (!d) { hits = 0; lockMsg('NO FACE FOUND...'); }
+    else if (faceapi.euclideanDistance(ref, d.descriptor) < MATCH_DIST) {
+      if (++hits >= 3) return unlock();       // 3 matches in a row
+      lockMsg('VERIFYING...');
+    } else { hits = 0; lockMsg('FACE NOT RECOGNISED', 'bad'); }
+    await sleep(250);
+  }
+}
+
+function enroll(run) {
+  const b = $('bReg');
+  lockMsg('NO FACE REGISTERED YET. LOOK STRAIGHT AT THE CAMERA, THEN PRESS REGISTER.');
+  b.hidden = false;
+  b.onclick = async () => {
+    b.hidden = true; lockMsg('HOLD STILL... CAPTURING');
+    const got = [];
+    for (let i = 0; i < 40 && got.length < 5 && run === gateRun; i++) {
+      const d = await detect(); if (d) got.push(d.descriptor);
+      await sleep(250);
+    }
+    if (got.length < 5) { lockMsg('COULD NOT SEE YOUR FACE CLEARLY. TRY AGAIN WITH BETTER LIGHT.', 'bad'); b.hidden = false; return; }
+    const avg = new Array(128).fill(0);
+    for (const d of got) for (let i = 0; i < 128; i++) avg[i] += d[i] / got.length;
+    const r = await fetch('/api/face', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(avg) });
+    if (!r.ok) { lockMsg('COULD NOT SAVE YOUR FACE (HTTP ' + r.status + ')', 'bad'); b.hidden = false; return; }
+    unlock();
+  };
+}
+
+async function faceGate() {
+  const run = ++gateRun; stopCam();
+  $('bReg').hidden = true; $('bRetry').hidden = true;
+  try {
+    if (!window.faceapi) { lockMsg('LOADING FACE ENGINE...'); await loadScript(FACE_LIB); }
+    lockMsg('LOADING FACE MODELS...');
+    const n = faceapi.nets;
+    await Promise.all([n.tinyFaceDetector.loadFromUri(FACE_MODELS), n.faceLandmark68Net.loadFromUri(FACE_MODELS), n.faceRecognitionNet.loadFromUri(FACE_MODELS)]);
+    lockMsg('STARTING CAMERA...');
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+    camEl.srcObject = camStream; await camEl.play();
+    const r = await fetch('/api/face', { cache: 'no-store' });
+    if (r.status === 404) return enroll(run);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return verify(new Float32Array(await r.json()), run);
+  } catch (e) {
+    const noCam = e && (e.name === 'NotAllowedError' || e.name === 'NotFoundError' || e.name === 'NotReadableError');
+    lockMsg(noCam ? 'CAMERA NOT AVAILABLE. Allow the camera (padlock icon in the address bar) and check that no other app is using it, then press RETRY. (Or start the script with -NoFace to skip Face ID.)' : 'FACE ID ERROR: ' + (e.message || e) + '  |  You can start the script with -NoFace to skip Face ID.', 'bad');
+    $('bRetry').hidden = false;
+  }
+}
+$('bRetry').onclick = faceGate;
+
+// ---------- start (runs only after face unlock) ----------
+function startApp() {
+const h = new Date().getHours();
+say(`${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}. Opening the engine model.`);
+for (const k in M) log('MODEL   ' + M[k].file + ' (expected in the repository models/ folder)');
+(async () => {
+  if (await enginePre) { show('engine'); say('Engine online. Loading the other models in the background.'); }
+  else {
+    say((M.engine.state === 'missing' ? "I can't find Car_Engine.glb on this computer." : "I couldn't load the engine model. See the error above.") + ' Put it in the script folder and restart, or press OPEN.');
+    $('label').textContent = 'NO ENGINE MODEL';
+  }
+  // load every other model by itself, one after the other, so they are ready when you open them
+  for (const k of ['arc', 'arc2', 'car']) {
+    if (M[k].state) continue;                         // already being loaded (you clicked it first)
+    const ok = await load(k);
+    if (ok) { log('READY   > ' + M[k].title + ' loaded.'); if (active === k) show(k); }
+    else if (M[k].state === 'missing') log('NOTE    > ' + M[k].file + ' was not found on this computer.');
+  }
+})();
+}
+const enginePre = load('engine');   // download and prepare the engine while Face ID checks you
+if (NO_FACE) { locked = false; lockEl.style.display = 'none'; appEl.inert = false; startApp(); }
+else faceGate();
+</script>
+</body>
+</html>
