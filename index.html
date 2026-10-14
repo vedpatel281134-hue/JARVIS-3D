@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>J.A.R.V.I.S // 3D</title>
+<title>J.A.R.V.I.S</title>
 <style>
 :root{--bg:#050d16;--line:#12384a;--cy:#00e5ff;--dim:#6fb3c4;--txt:#b9f4ff}
 *{box-sizing:border-box}
@@ -80,9 +80,9 @@ button.on{background:var(--cy);color:#001018}
     <div id="label">LOADING ENGINE MODEL...</div>
     <div id="scanline"></div>
     <svg id="tagLines"></svg><div id="tags"></div>
-    <div id="hint">DRAG: ROTATE  |  WHEEL: ZOOM  |  KEYS: 1 2 3 4 SPACE H L P S F</div>
+    <div id="hint">DRAG: ROTATE  |  WHEEL: ZOOM  |  DROP A .GLB TO LOAD IT  |  KEYS: 1 2 3 4 SPACE H L P S F</div>
     <div class="btns">
-      <button id="bEngine">ENGINE</button><button id="bCar">CAR</button><button id="bArc">ARC</button><button id="bArc2">ARC 2</button>
+      <button id="bCar">CAR</button><button id="bArc">ARC</button><button id="bArc2">ARC 2</button>
       <button id="bSpin" class="on">SPIN</button><button id="bHolo">HOLO</button><button id="bLight" class="on">LIGHT</button><button id="bParts" class="on">PARTS</button>
       <button id="bScan">SCAN</button><button id="bReset">RESET</button><button id="bOpen">OPEN</button><button id="bFull">FULL</button>
     </div>
@@ -195,9 +195,10 @@ async function load(key, file) {
     let url;
     if (file) { blobUrl = URL.createObjectURL(file); url = blobUrl; ACTUAL[m.file] = file.name; }
     else {
-      // GitHub Pages version: place model files in the repository's models/ folder.
-      url = './models/' + encodeURIComponent(m.file);
-      ACTUAL[m.file] = m.file;
+      const info = await (await fetch('/api/models', { cache: 'no-store' })).json();
+      if (!info[m.file]) throw new Error('HTTP 404');
+      ACTUAL[m.file] = info[m.file];
+      url = '/models/' + m.file;
     }
     // the loader streams the file itself (no extra copy of a huge file in memory)
     const g = await gltfLoader.loadAsync(url, ev => {
@@ -233,8 +234,8 @@ function show(key) {
   if (m.state === 'missing' || m.state === 'failed') {
     if (!m.retried) { m.retried = true; m.state = undefined; }          // look on the disk once more
     else {
-      say((m.state === 'missing' ? `I can't find ${m.file} on this computer.` : `The ${m.title} model failed to load.`) + ' Put the file in the script folder and restart, or press OPEN.');
-      return;
+      say((m.state === 'missing' ? `I can't find ${m.file}.` : `The ${m.title} model failed to load.`) + ' Choose the .glb file from your computer.');
+      return pickFile(key);
     }
   }
   active = key; tagSel = -1; tagNext = 0;
@@ -243,8 +244,8 @@ function show(key) {
     load(key).then(ok => {
       if (ok) { if (active === key) show(key); }
       else {
-        say(m.state === 'missing' ? `I can't find ${m.file} on this computer. Put it in the script folder and restart, or press OPEN.` : `I couldn't load the ${m.title} model. See the error above.`);
-        m.retried = true;
+        say(m.state === 'missing' ? `I can't find ${m.file} next to the script. Choose it from your computer.` : `I couldn't load the ${m.title} model. See the error above. You can choose the file yourself.`);
+        m.retried = true; pickFile(key);
       }
     });
     return;
@@ -257,7 +258,6 @@ function show(key) {
     setTimeout(() => { try { buildTags(m); } catch (e) { log('ERROR > part labels: ' + e.message); } }, 80);
   }
   $('label').textContent = `${m.title}  //  ${fmt(m.tris)} POLYGONS`;
-  $('bEngine').classList.toggle('on', key === 'engine');
   $('bCar').classList.toggle('on', key === 'car'); $('bArc').classList.toggle('on', key === 'arc'); $('bArc2').classList.toggle('on', key === 'arc2');
 }
 function applyPerf(m) {
@@ -377,7 +377,6 @@ function handle(raw) {
 const send = () => { handle($('in').value); $('in').value = ''; };
 $('send').onclick = send;
 $('in').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-$('bEngine').onclick = () => handle('show engine');
 $('bCar').onclick = () => handle('show car'); $('bArc').onclick = () => handle('show arc reactor'); $('bArc2').onclick = () => handle('show arc reactor 2');
 const fullscreen = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 $('bFull').onclick = fullscreen;
@@ -396,7 +395,7 @@ $('mic').onclick = () => {
 };
 setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString([], { hour12: false }); }, 1000);
 
-// ---------- choose / drop your own .glb (last resort only) ----------
+// ---------- choose / drop your own .glb ----------
 let pickFor = null;
 function pickFile(key) { pickFor = key; const f = $('fileIn'); f.value = ''; f.click(); }
 function guessSlot(name) {
@@ -625,19 +624,14 @@ $('bRetry').onclick = faceGate;
 function startApp() {
 const h = new Date().getHours();
 say(`${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}. Opening the engine model.`);
-for (const k in M) log('MODEL   ' + M[k].file + ' (expected in the repository models/ folder)');
+fetch('/api/models', { cache: 'no-store' }).then(r => r.json()).then(info => {
+  for (const k in M) { const f = info[M[k].file]; log((f ? 'OK      ' : 'MISSING ') + M[k].file + (f && f !== M[k].file ? '  (using ' + f + ')' : '')); }
+}).catch(() => {});
 (async () => {
-  if (await enginePre) { show('engine'); say('Engine online. Loading the other models in the background.'); }
+  if (await enginePre) { show('engine'); say('Engine online. The car and arc reactors load when you open them.'); }
   else {
-    say((M.engine.state === 'missing' ? "I can't find Car_Engine.glb on this computer." : "I couldn't load the engine model. See the error above.") + ' Put it in the script folder and restart, or press OPEN.');
+    say((M.engine.state === 'missing' ? "I can't find Car_Engine.glb next to the script." : "I couldn't load the engine model. See the error above.") + ' Press 1 or OPEN to choose it from your computer.');
     $('label').textContent = 'NO ENGINE MODEL';
-  }
-  // load every other model by itself, one after the other, so they are ready when you open them
-  for (const k of ['arc', 'arc2', 'car']) {
-    if (M[k].state) continue;                         // already being loaded (you clicked it first)
-    const ok = await load(k);
-    if (ok) { log('READY   > ' + M[k].title + ' loaded.'); if (active === k) show(k); }
-    else if (M[k].state === 'missing') log('NOTE    > ' + M[k].file + ' was not found on this computer.');
   }
 })();
 }
