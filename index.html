@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>J.A.R.V.I.S</title>
+<title>J.A.R.V.I.S // 3D HAND CONTROL</title>
 <style>
 :root{--bg:#050d16;--line:#12384a;--cy:#00e5ff;--dim:#6fb3c4;--txt:#b9f4ff}
 *{box-sizing:border-box}
@@ -16,6 +16,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #hint{position:absolute;bottom:14px;left:14px;color:var(--dim);font-size:11px;pointer-events:none;z-index:2}
 .btns{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;z-index:2}
 button{font:inherit;color:var(--cy);background:#00e5ff14;border:1px solid var(--cy);border-radius:6px;padding:5px 11px;cursor:pointer}
+button[hidden]{display:none}
 button:hover{background:#00e5ff30}
 button:focus-visible,input:focus-visible{outline:2px solid #fff;outline-offset:2px}
 button.on{background:var(--cy);color:#001018}
@@ -51,45 +52,33 @@ button.on{background:var(--cy);color:#001018}
 .tag.open p{display:block}
 #tagLines line.act{stroke-width:2.4;opacity:1}
 #view.drop{outline:2px dashed var(--cy);outline-offset:-6px}
-#lock{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#16303f,#050b12 75%)}
-.lockbox{display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px;text-align:center;max-width:460px}
-.lt{color:var(--cy);font-size:16px;letter-spacing:3px}
-.vwrap{position:relative;width:240px;height:240px;margin:14px}
-.vwrap video{width:100%;height:100%;object-fit:cover;border-radius:50%;transform:scaleX(-1);background:#00000060;border:2px solid var(--cy)}
-.vwrap i{position:absolute;inset:-14px;border:3px dashed var(--cy);border-radius:50%;animation:spin 12s linear infinite}
-#lmsg{color:var(--txt);min-height:44px}
-#lmsg.ok{color:#7cffb2}
-#lmsg.bad{color:#ff7b7b}
-.lbtns{display:flex;gap:8px}
-@media(prefers-reduced-motion:reduce){.vwrap i{animation:none}}
+#handBox,#faceBox{display:none;flex:none;width:240px;margin:0 auto;border:1px solid var(--cy);border-radius:8px;overflow:hidden;background:#000a}
+#handBox .pv,#faceBox .pv{position:relative;width:240px;height:180px}
+#handBox video,#faceBox video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#handBox canvas,#faceBox canvas{position:absolute;inset:0;width:100%;height:100%}
+#handPose,#facePose{padding:5px 8px;font-size:11px;line-height:1.35;color:var(--cy);min-height:32px}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head>
 <body>
 <input type="file" id="fileIn" accept=".glb" multiple hidden>
-<div id="lock">
-  <div class="lockbox">
-    <div class="lt">J.A.R.V.I.S // FACE ID</div>
-    <div class="vwrap"><video id="cam" autoplay playsinline muted></video><i></i></div>
-    <div id="lmsg">STARTING...</div>
-    <div class="lbtns"><button id="bReg" hidden>REGISTER MY FACE</button><button id="bRetry" hidden>RETRY</button></div>
-  </div>
-</div>
 <div class="app">
   <div id="view">
     <div id="label">LOADING ENGINE MODEL...</div>
     <div id="scanline"></div>
     <svg id="tagLines"></svg><div id="tags"></div>
-    <div id="hint">DRAG: ROTATE  |  WHEEL: ZOOM  |  DROP A .GLB TO LOAD IT  |  KEYS: 1 2 3 4 SPACE H L P S F</div>
+    <div id="hint">DRAG: ROTATE  |  WHEEL: ZOOM  |  DROP A .GLB TO LOAD IT  |  Upload models to ./models/</div>
     <div class="btns">
       <button id="bCar">CAR</button><button id="bArc">ARC</button><button id="bArc2">ARC 2</button>
-      <button id="bSpin" class="on">SPIN</button><button id="bHolo">HOLO</button><button id="bLight" class="on">LIGHT</button><button id="bParts" class="on">PARTS</button>
-      <button id="bScan">SCAN</button><button id="bReset">RESET</button><button id="bOpen">OPEN</button><button id="bFull">FULL</button>
+      <button id="bSpin" class="on">SPIN</button><button id="bHolo">HOLO</button><button id="bLight" class="on">LIGHT</button><button id="bParts" class="on">PARTS</button><button id="bHand">HAND</button><button id="bListen">LISTEN</button><button id="bFace">FACE</button><button id="bCenter" hidden>CENTER</button>
+      <button id="bScan">SCAN</button><button id="bReset">RESET</button><button id="bOpen">OPEN</button><button id="bLite">LITE</button><button id="bFull">FULL</button>
     </div>
   </div>
   <div class="side">
     <div class="top"><span>J.A.R.V.I.S // 3D ANALYSIS</span><span id="clock"></span></div>
     <div class="reactor"><i class="r1"></i><i class="r2"></i><i class="r3"></i><b>V</b></div>
+    <div id="handBox"><div class="pv"><video id="handVid" muted playsinline></video><canvas id="handCv" width="320" height="240"></canvas></div><div id="handPose"></div></div>
+    <div id="faceBox"><div class="pv"><video id="faceVid" muted playsinline></video><canvas id="faceCv" width="320" height="240"></canvas></div><div id="facePose"></div></div>
     <div id="out" aria-live="polite"></div>
     <div class="row">
       <input id="in" placeholder="Type a command (try: help)" autocomplete="off">
@@ -112,15 +101,20 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 window.__jarvis = true;
-const NO_FACE = true;
+const AUTO_LITE = false;   // false = never make fast copies by itself (press LITE to do it yourself)
+const PRELOAD = false;   // false = load a model only when you open it (lighter on your PC)
 const $ = id => document.getElementById(id), out = $('out');
 const log = t => { out.textContent += t + '\n'; out.scrollTop = out.scrollHeight; };
 const say = (t, speak = true) => { log('JARVIS > ' + t); if (speak && 'speechSynthesis' in window) speechSynthesis.speak(new SpeechSynthesisUtterance(t)); };
 addEventListener('error', e => log('ERROR > ' + e.message));
 addEventListener('unhandledrejection', e => log('ERROR > ' + ((e.reason && e.reason.message) || e.reason)));
 const fmt = n => Math.round(n).toLocaleString();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const tick = w => log('TIME > ' + w + ': ' + (performance.now() / 1000).toFixed(1) + 's after the page opened');
+tick('page scripts loaded');
 
 // ---------- scene ----------
 const view = $('view');
@@ -178,6 +172,17 @@ renderer.setAnimationLoop(() => {
 
 // ---------- models ----------
 const M = { engine: { file: 'Car_Engine.glb', title: 'ENGINE' }, car: { file: 'porsche_gt3.glb', title: 'PORSCHE GT3' }, arc: { file: 'arc_reactor.glb', title: 'ARC REACTOR' }, arc2: { file: 'arc_reactor_2.glb', title: 'ARC REACTOR 2' } };
+// GitHub Pages static hosting: look for models in ./models/ instead of a local PowerShell API.
+async function getModelInfo() {
+  const info = {};
+  for (const item of Object.values(M)) {
+    try {
+      const r = await fetch('./models/' + item.file, { method: 'HEAD', cache: 'no-store' });
+      if (r.ok) info[item.file] = item.file;
+    } catch (_) {}
+  }
+  return info;
+}
 const ACTUAL = {};
 const isArc = k => k === 'arc' || k === 'arc2';
 let active = 'engine', holo = false, scanning = false;
@@ -191,17 +196,19 @@ const gltfLoader = new GLTFLoader()
 async function load(key, file) {
   const m = M[key]; m.state = 'loading';
   let blobUrl = null;
+  const tL0 = performance.now(); let tDl = 0, totalMB = 0;
   try {
     let url;
     if (file) { blobUrl = URL.createObjectURL(file); url = blobUrl; ACTUAL[m.file] = file.name; }
     else {
-      const info = await (await fetch('/api/models', { cache: 'no-store' })).json();
+      const info = await getModelInfo();
       if (!info[m.file]) throw new Error('HTTP 404');
       ACTUAL[m.file] = info[m.file];
-      url = '/models/' + m.file;
+      url = './models/' + m.file;
     }
     // the loader streams the file itself (no extra copy of a huge file in memory)
     const g = await gltfLoader.loadAsync(url, ev => {
+      if (ev.total && ev.loaded >= ev.total && !tDl) { tDl = performance.now(); totalMB = ev.total / 1048576; }
       if (active !== key) return;
       $('label').textContent = ev.total && ev.loaded >= ev.total ? `PROCESSING ${m.title} MODEL...`
         : `LOADING ${m.title} MODEL ` + (ev.total ? Math.round(ev.loaded / ev.total * 100) + '%' : (ev.loaded / 1048576).toFixed(0) + ' MB');
@@ -221,6 +228,7 @@ async function load(key, file) {
     else log(`NOTE > ${m.title} is a heavy model (${fmt(tris)} triangles). Using light rendering so it stays smooth.`);
     wrap.visible = false; scene.add(wrap);
     Object.assign(m, { wrap, size, tris, verts, state: 'ready' });
+    log(`TIME > ${m.title}: ${totalMB ? totalMB.toFixed(0) + ' MB, ' : ''}download ${tDl ? ((tDl - tL0) / 1000).toFixed(1) : '?'}s, processing ${((performance.now() - (tDl || tL0)) / 1000).toFixed(1)}s, ${fmt(tris)} triangles`);
     return true;
   } catch (e) {
     m.state = String(e.message) === 'HTTP 404' ? 'missing' : 'failed';
@@ -231,32 +239,26 @@ async function load(key, file) {
 
 function show(key) {
   const m = M[key];
-  if (m.state === 'missing' || m.state === 'failed') {
-    if (!m.retried) { m.retried = true; m.state = undefined; }          // look on the disk once more
-    else {
-      say((m.state === 'missing' ? `I can't find ${m.file}.` : `The ${m.title} model failed to load.`) + ' Choose the .glb file from your computer.');
-      return pickFile(key);
-    }
-  }
+  if (m.state === 'missing') return say(`${m.title} is not available: no ${m.file} was found next to the script.`);
+  if (m.state === 'failed') return say(`The ${m.title} model failed to load. See the error above.`);
   active = key; tagSel = -1; tagNext = 0;
   if (!m.state) {
     $('label').textContent = `LOADING ${m.title} MODEL...`; say(`Loading the ${m.title} model.`);
     load(key).then(ok => {
       if (ok) { if (active === key) show(key); }
-      else {
-        say(m.state === 'missing' ? `I can't find ${m.file} next to the script. Choose it from your computer.` : `I couldn't load the ${m.title} model. See the error above. You can choose the file yourself.`);
-        m.retried = true; pickFile(key);
-      }
+      else say(m.state === 'missing' ? `${m.title} is not available: no ${m.file} was found.` : `I couldn't load the ${m.title} model. See the error above.`);
     });
     return;
   }
   if (m.state !== 'ready') { $('label').textContent = `LOADING ${m.title} MODEL...`; return say(`The ${m.title} model is still loading.`); }
   for (const k in M) if (M[k].wrap) M[k].wrap.visible = k === key;
+  if (!PRELOAD) for (const k in M) if (k !== key && M[k].state === 'ready' && !M[k].fromFile && M[k].tris > 400000) freeModel(k);   // keep memory low
   applyHolo(); applyLight(); applyPerf(m);
   if (isArc(key) && !m.tags && !m.tagsBuilding) {
     m.tagsBuilding = true;
     setTimeout(() => { try { buildTags(m); } catch (e) { log('ERROR > part labels: ' + e.message); } }, 80);
   }
+  if (AUTO_LITE && m.tris > LITE_TRIS && !m.fromFile && !m.liteTried && !isLiteFile(key)) { m.liteTried = true; setTimeout(() => makeLite(key, false), 2500); }
   $('label').textContent = `${m.title}  //  ${fmt(m.tris)} POLYGONS`;
   $('bCar').classList.toggle('on', key === 'car'); $('bArc').classList.toggle('on', key === 'arc'); $('bArc2').classList.toggle('on', key === 'arc2');
 }
@@ -326,17 +328,44 @@ function scan() {
 }
 
 // ---------- commands ----------
+// "bring up everything on arc reactor 2", "show me the engine", "scan the car" ... -> which model, and whether to show everything
+function naturalModel(c) {
+  const all = /(everything|all (?:the )?(?:info|information|details|data)|all about|full (?:report|info|scan|briefing)|brief me|analy[sz]e|\bscan\b)/.test(c);
+  const verb = /(bring up|pull up|show me|show|display|load|open|give me|tell me|what is|what's|information|info|details|brief me|analy[sz]e|\bscan\b)/.test(c);
+  if (!all && !verb) return null;
+  let key = null;
+  if (/\barc\b|\bark\b|reactor/.test(c)) key = /(?:\barc\b|\bark\b|reactor)\s*(?:2|two|to|too)\b|second|number (?:2|two)/.test(c) ? 'arc2' : 'arc';
+  else if (/engine/.test(c)) key = 'engine';
+  else if (/porsche|gt3|\bcar\b/.test(c)) key = 'car';
+  return key ? { key, all } : null;
+}
+async function bringUp(key, everything) {
+  say(everything ? `Bringing up everything on ${M[key].title}.` : `Bringing up ${M[key].title}.`);
+  show(key);
+  if (!everything) return;
+  for (let i = 0; i < 900 && (!M[key].state || M[key].state === 'loading'); i++) await sleep(100);   // wait for the model (up to 90 s)
+  if (M[key].state !== 'ready' || active !== key) return;
+  if (isArc(key)) { tagsOn = true; tagAuto = true; tagNext = 0; tagSel = -1; $('bParts').classList.add('on'); }   // part labels + tour
+  scan();                                                                                                  // full scan report
+}
 function handle(raw) {
-  const c = raw.trim().toLowerCase(); if (!c) return;
+  let c = raw.trim().toLowerCase(); if (!c) return;
   log('YOU    > ' + raw);
+  c = c.replace(/^(?:hey|hay|hi|ok|okay)[\s,]+(?:jarvis|jervis|garvis)[\s,.:!?-]*/, '').replace(/^jarvis[\s,.:!?-]*/, '').trim();
+  if (!c) return say('Yes?');
   const v = '((show|load|display|switch to|view|open) )?(the )?';
-  let q;
-  if (/^(hi|hello|hey)\b/.test(c)) say('Hello. How can I assist you?');
+  let q, nl;
+  if (/^(hi|hello|hey)[.!]?$/.test(c)) say('Hello. How can I assist you?');
+  else if ((nl = naturalModel(c))) bringUp(nl.key, nl.all);
   else if (new RegExp('^' + v + '(car )?engine( model)?$').test(c)) show('engine');
   else if (new RegExp('^' + v + '(porsche|gt3|porsche gt3|car|car model|porsche model)$').test(c)) show('car');
   else if (new RegExp('^' + v + '(arc reactor 2|arc 2|reactor 2|second arc( reactor)?|arc reactor two|arc two)$').test(c)) show('arc2');
   else if (new RegExp('^' + v + '(arc reactor|arc|reactor)$').test(c)) show('arc');
   else if (/^(open file|load file|browse|open)$/.test(c)) pickFile(null);
+  else if (/^(hand|hands|gestures?)\b/.test(c)) toggleHand();
+  else if (/^(face|head)\b/.test(c)) toggleFace();
+  else if (/^(centre|center|recentre|recenter)/.test(c)) faceRecenter();
+  else if (/^(lite|fast|optimi[sz]e|shrink)/.test(c)) makeLite(active, true);
   else if (/^(full ?screen)/.test(c)) fullscreen();
   else if (/^(rotate|spin)/.test(c)) { ctl.autoRotate = true; $('bSpin').classList.add('on'); say('Rotating.'); }
   else if (/^(stop|halt|freeze|pause)/.test(c)) { ctl.autoRotate = false; $('bSpin').classList.remove('on'); say('Rotation stopped.'); }
@@ -369,7 +398,7 @@ function handle(raw) {
   else if ((q = c.match(/^(search|google) (.+)/))) { open('https://www.google.com/search?q=' + encodeURIComponent(q[2])); say('Searching for ' + q[2] + '.'); }
   else if ((q = c.match(/^(play|youtube) (.+)/))) { open('https://www.youtube.com/results?search_query=' + encodeURIComponent(q[2])); say('Looking up ' + q[2] + ' on YouTube.'); }
   else if ((q = c.match(/^say (.+)/))) say(q[1]);
-  else if (/^(help|commands)/.test(c)) say('Models: show engine, show car, show arc reactor, show arc reactor 2, open (choose a .glb file), scan, info, fullscreen. View: rotate, stop, faster, slower, zoom in, zoom out, reset, hologram, light, parts, tour, texture. Other: time, date, search cats, play lofi, say hello.');
+  else if (/^(help|commands)/.test(c)) say('Voice: say Hey Jarvis, then for example bring up everything on arc reactor 2. Models: show engine, show car, show arc reactor, show arc reactor 2, open (choose a .glb file), lite (make a faster copy of this model), scan, info, fullscreen, hand (control the model with your hand), face (control the model with your head), center (re-centre face tracking). View: rotate, stop, faster, slower, zoom in, zoom out, reset, hologram, light, parts, tour, texture. Other: time, date, search cats, play lofi, say hello.');
   else say("I don't recognise that command. Say help for options.");
 }
 
@@ -381,7 +410,7 @@ $('bCar').onclick = () => handle('show car'); $('bArc').onclick = () => handle('
 const fullscreen = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 $('bFull').onclick = fullscreen;
 addEventListener('keydown', e => {
-  if (locked || e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT') return;
   const k = { 1: 'engine', 2: 'car', 3: 'arc', 4: 'arc2' }[e.key];
   if (k) show(k); else if (e.key === ' ') { e.preventDefault(); handle(ctl.autoRotate ? 'stop' : 'rotate'); }
   else if (e.key === 'h') handle('hologram'); else if (e.key === 'l') handle('light'); else if (e.key === 'p') handle('parts'); else if (e.key === 's') handle('scan'); else if (e.key === 'f') fullscreen();
@@ -391,9 +420,123 @@ $('bHolo').onclick = () => handle('hologram'); $('bLight').onclick = () => handl
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 $('mic').onclick = () => {
   if (!SR) return say('Voice input needs Google Chrome.');
+  if (WK.on) return say('I am already listening. Say hey Jarvis, then your command.', false);
   const r = new SR(); r.lang = 'en-US'; r.onresult = e => handle(e.results[0][0].transcript); r.onerror = () => say("I didn't catch that."); r.start();
 };
 setInterval(() => { $('clock').textContent = new Date().toLocaleTimeString([], { hour12: false }); }, 1000);
+
+// ---------- fast copy: shrink a heavy model ONCE, save it next to the script, load the small one from then on ----------
+const LITE_TRIS = 400000, LITE_TARGET = 250000;
+let liteBusy = false;
+const isLiteFile = k => /_lite\.glb$/i.test(ACTUAL[M[k].file] || '');
+// runs inside a background worker (the page keeps working while it shrinks a model)
+function liteWorkerMain() {
+  self.onmessage = function (e) {
+    var d = e.data, pos = d.pos, uv = d.uv, index = d.index, target = d.target;
+    var n = pos.length / 3, nt = (index ? index.length : n) / 3, i, k, t;
+    var mn = [1e30, 1e30, 1e30], mx = [-1e30, -1e30, -1e30];
+    for (i = 0; i < n; i++) for (k = 0; k < 3; k++) { var v = pos[i * 3 + k]; if (v < mn[k]) mn[k] = v; if (v > mx[k]) mx[k] = v; }
+    var dim = Math.max(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]) || 1;
+    function run(G) {
+      var cell = dim / G, ids = new Int32Array(n), map = new Map(), next = 0, tris = 0;
+      for (var i = 0; i < n; i++) {
+        var ix = Math.min(G - 1, ((pos[i * 3] - mn[0]) / cell) | 0), iy = Math.min(G - 1, ((pos[i * 3 + 1] - mn[1]) / cell) | 0), iz = Math.min(G - 1, ((pos[i * 3 + 2] - mn[2]) / cell) | 0);
+        var key = (ix * G + iy) * G + iz, id = map.get(key);
+        if (id === undefined) { id = next++; map.set(key, id); }
+        ids[i] = id;
+      }
+      for (var t = 0; t < nt; t++) {
+        var a = ids[index ? index[t * 3] : t * 3], b = ids[index ? index[t * 3 + 1] : t * 3 + 1], c = ids[index ? index[t * 3 + 2] : t * 3 + 2];
+        if (a !== b && b !== c && a !== c) tris++;
+      }
+      return { ids: ids, count: next, tris: tris };
+    }
+    var G = 128, r = run(G);
+    for (var pass = 0; pass < 3; pass++) {                       // a few passes, steering toward the target size
+      if (r.tris <= target * 1.25 && (r.tris >= target * 0.5 || G >= 512)) break;
+      var nG = Math.round(G * Math.sqrt(target / Math.max(1, r.tris)) * (r.tris > target ? 0.95 : 1));
+      nG = Math.max(16, Math.min(512, nG));
+      if (nG === G) break;
+      G = nG; r = run(G);
+    }
+    var ids = r.ids, count = r.count;
+    var P = new Float32Array(count * 3), C = new Uint32Array(count), U = uv ? new Float32Array(count * 2) : null, seen = new Uint8Array(count);
+    for (i = 0; i < n; i++) {
+      var id2 = ids[i];
+      P[id2 * 3] += pos[i * 3]; P[id2 * 3 + 1] += pos[i * 3 + 1]; P[id2 * 3 + 2] += pos[i * 3 + 2]; C[id2]++;
+      if (U && !seen[id2]) { U[id2 * 2] = uv[i * 2]; U[id2 * 2 + 1] = uv[i * 2 + 1]; seen[id2] = 1; }
+    }
+    for (i = 0; i < count; i++) { var cc = C[i] || 1; P[i * 3] /= cc; P[i * 3 + 1] /= cc; P[i * 3 + 2] /= cc; }
+    var I = new Uint32Array(nt * 3), w = 0;
+    for (t = 0; t < nt; t++) {
+      var a2 = ids[index ? index[t * 3] : t * 3], b2 = ids[index ? index[t * 3 + 1] : t * 3 + 1], c2 = ids[index ? index[t * 3 + 2] : t * 3 + 2];
+      if (a2 !== b2 && b2 !== c2 && a2 !== c2) { I[w++] = a2; I[w++] = b2; I[w++] = c2; }
+    }
+    var I2 = I.slice(0, w), tl = [P.buffer, I2.buffer];
+    if (U) tl.push(U.buffer);
+    postMessage({ P: P, U: U, I: I2, tris: w / 3, G: G }, tl);
+  };
+}
+function geoArrays(geo) {
+  const pa = geo.attributes.position, n = pa.count, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { pos[i * 3] = pa.getX(i); pos[i * 3 + 1] = pa.getY(i); pos[i * 3 + 2] = pa.getZ(i); }
+  let uv = null; const ua = geo.attributes.uv;
+  if (ua) { uv = new Float32Array(n * 2); for (let i = 0; i < n; i++) { uv[i * 2] = ua.getX(i); uv[i * 2 + 1] = ua.getY(i); } }
+  return { pos, uv, index: geo.index ? Uint32Array.from(geo.index.array) : null };
+}
+const askWorker = (w, msg, transfer) => new Promise((res, rej) => {
+  w.onmessage = e => res(e.data); w.onerror = e => rej(new Error(e.message || 'worker error'));
+  w.postMessage(msg, transfer);
+});
+async function makeLite(key, force) {
+  const m = M[key];
+  if (liteBusy) return say('I am already making a fast copy.');
+  if (m.state !== 'ready') return say('Open the model first, then press LITE.');
+  if (m.fromFile) return say('This model was opened by hand, so I cannot save a fast copy of it.');
+  if (isLiteFile(key)) { if (force) say('This is already the fast copy.'); return; }
+  liteBusy = true;
+  const label = $('label'), old = label.textContent, t0 = performance.now();
+  let worker = null;
+  try {
+    log(`NOTE > Making a fast copy of ${m.title} (${fmt(m.tris)} triangles) in the background. This happens once; the page keeps working.`);
+    const root = m.wrap.children[0], meshes = [];
+    root.traverse(o => { if (o.isMesh) meshes.push(o); });
+    worker = new Worker(URL.createObjectURL(new Blob(['(' + liteWorkerMain.toString() + ')()'], { type: 'text/javascript' })));
+    const shrunk = []; let outTris = 0;
+    for (let i = 0; i < meshes.length; i++) {
+      const g = meshes[i].geometry, nt = (g.index ? g.index.count : g.attributes.position.count) / 3;
+      const tgt = Math.max(500, Math.round(LITE_TARGET * nt / m.tris));
+      label.textContent = `MAKING A FAST COPY OF ${m.title}...  PART ${i + 1} OF ${meshes.length}`;
+      if (nt <= tgt * 1.1) { shrunk.push(null); outTris += nt; continue; }       // small part: keep as it is
+      const a = geoArrays(g), tl = [a.pos.buffer]; if (a.uv) tl.push(a.uv.buffer); if (a.index) tl.push(a.index.buffer);
+      const r = await askWorker(worker, { pos: a.pos, uv: a.uv, index: a.index, target: tgt }, tl);
+      const ng = new THREE.BufferGeometry();
+      ng.setAttribute('position', new THREE.BufferAttribute(r.P, 3));
+      if (r.U) ng.setAttribute('uv', new THREE.BufferAttribute(r.U, 2));
+      ng.setIndex(new THREE.BufferAttribute(r.I, 1));
+      ng.computeVertexNormals();
+      shrunk.push(ng); outTris += r.tris;
+    }
+    worker.terminate(); worker = null;
+    const clone = root.clone(true), cm = [];
+    clone.traverse(o => { if (o.isMesh) cm.push(o); });
+    cm.forEach((o, i) => { if (shrunk[i]) o.geometry = shrunk[i]; });
+    label.textContent = `SAVING THE FAST COPY OF ${m.title}...`;
+    await new Promise(r => setTimeout(r, 30));
+    const buf = await new GLTFExporter().parseAsync(clone, { binary: true, maxTextureSize: 1024 });
+    const liteUrl = URL.createObjectURL(new Blob([buf], { type: 'model/gltf-binary' }));
+    const download = document.createElement('a');
+    download.href = liteUrl; download.download = m.file.replace(/\.glb$/i, '_lite.glb');
+    document.body.appendChild(download); download.click(); download.remove();
+    setTimeout(() => URL.revokeObjectURL(liteUrl), 2000);
+    log(`DONE > Downloaded fast copy: ${download.download} (${fmt(outTris)} triangles, ${(buf.byteLength / 1048576).toFixed(1)} MB). Upload it into the models folder on GitHub if you want to use it online.`);
+    say('Fast copy downloaded. Upload it to the models folder on GitHub to use it online.');
+    liteBusy = false;
+    freeModel(key); if (active === key) show(key);          // switch to the small copy right away
+  } catch (e) { log('ERROR > fast copy: ' + (e.message || e)); label.textContent = old; }
+  if (worker) worker.terminate();
+  liteBusy = false;
+}
 
 // ---------- choose / drop your own .glb ----------
 let pickFor = null;
@@ -408,13 +551,27 @@ function guessSlot(name) {
   }
   return active;
 }
-function loadFromFile(key, f) {
+function freeModel(key) {
   const m = M[key];
-  if (m.wrap) { m.wrap.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); scene.remove(m.wrap); }
+  if (m.wrap) {
+    m.wrap.traverse(o => { if (o.isMesh) {
+      o.geometry.dispose();
+      for (const mt of [].concat(o.userData.mat || o.material)) {
+        for (const v of Object.values(mt)) if (v && v.isTexture) v.dispose();
+        mt.dispose();
+      }
+    } });
+    scene.remove(m.wrap);
+  }
   if (m.tagWrap) m.tagWrap.remove();
   if (m.tagG) m.tagG.remove();
   for (const k of ['wrap', 'size', 'tris', 'verts', 'state', 'tags', 'tagWrap', 'tagG', 'tagsBuilding']) delete m[k];
+}
+function loadFromFile(key, f) {
+  const m = M[key];
+  freeModel(key); m.fromFile = true;
   active = key; tagSel = -1; tagNext = 0;
+  const bt = { car: 'bCar', arc: 'bArc', arc2: 'bArc2' }[key]; if (bt) $(bt).style.display = '';
   $('label').textContent = `LOADING ${m.title} MODEL...`;
   say(`Loading ${f.name} as ${m.title}.`);
   load(key, f).then(ok => {
@@ -428,7 +585,7 @@ function handleFiles(files, forced) {
   list.forEach((f, i) => loadFromFile(i === 0 && forced ? forced : guessSlot(f.name), f));
 }
 $('fileIn').onchange = e => { handleFiles(e.target.files, pickFor); pickFor = null; };
-$('bOpen').onclick = () => pickFile(null);
+$('bOpen').onclick = () => pickFile(null); $('bLite').onclick = () => handle('lite');
 view.addEventListener('dragover', e => { e.preventDefault(); view.classList.add('drop'); });
 view.addEventListener('dragleave', () => view.classList.remove('drop'));
 view.addEventListener('drop', e => { e.preventDefault(); view.classList.remove('drop'); handleFiles(e.dataTransfer.files, null); });
@@ -539,105 +696,349 @@ function updateTags() {
   }
 }
 
-// ---------- face id ----------
-const FACE_VER = '1.7.12';
-const FACE_LIB = `https://cdn.jsdelivr.net/npm/@vladmandic/face-api@${FACE_VER}/dist/face-api.js`;
-const FACE_MODELS = `https://cdn.jsdelivr.net/npm/@vladmandic/face-api@${FACE_VER}/model/`;
-const MATCH_DIST = 0.5;                       // lower = stricter (0.6 is the library default)
-let locked = true, gateRun = 0, camStream = null;
-const lockEl = $('lock'), appEl = document.querySelector('.app'), camEl = $('cam');
-appEl.inert = true;                           // nothing in the app can be used while locked
-const lockMsg = (t, cls = '') => { const m = $('lmsg'); m.textContent = t; m.className = cls; };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const loadScript = src => new Promise((res, rej) => {
-  const s = document.createElement('script'); s.src = src; s.onload = res;
-  s.onerror = () => rej(new Error('Could not load ' + src + ' (check internet / ad-blocker)'));
-  document.head.appendChild(s);
-});
-const detect = () => faceapi.detectSingleFace(camEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })).withFaceLandmarks().withFaceDescriptor();
-const stopCam = () => { if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null; };
-
-function unlock() {
-  locked = false; stopCam();
-  lockMsg('IDENTITY CONFIRMED', 'ok');
-  setTimeout(() => { lockEl.style.display = 'none'; appEl.inert = false; startApp(); }, 600);
-}
-
-async function verify(ref, run) {
-  let hits = 0;
-  lockMsg('LOOK AT THE CAMERA...');
-  while (locked && run === gateRun) {
-    const d = await detect();
-    if (!d) { hits = 0; lockMsg('NO FACE FOUND...'); }
-    else if (faceapi.euclideanDistance(ref, d.descriptor) < MATCH_DIST) {
-      if (++hits >= 3) return unlock();       // 3 matches in a row
-      lockMsg('VERIFYING...');
-    } else { hits = 0; lockMsg('FACE NOT RECOGNISED', 'bad'); }
-    await sleep(250);
+// ---------- shared: MediaPipe tracking library (loaded once, used by hand and face tracking) ----------
+const MP_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+let MPV = null;
+async function mpVision() {
+  if (!MPV) {
+    const vis = await import(MP_URL + '/vision_bundle.mjs');
+    MPV = { vis, files: await vis.FilesetResolver.forVisionTasks(MP_URL + '/wasm') };
   }
+  return MPV;
+}
+function sideBoxes() {            // the arc reactor picture on the right gives way to the camera box
+  const any = $('handBox').style.display === 'block' || $('faceBox').style.display === 'block';
+  document.querySelector('.reactor').style.display = any ? 'none' : '';
+}
+function orbitBy(dTheta, dPhi) {
+  const off = cam.position.clone().sub(ctl.target), sph = new THREE.Spherical().setFromVector3(off);
+  sph.theta += dTheta; sph.phi = Math.min(Math.PI - 0.05, Math.max(0.05, sph.phi + dPhi));
+  off.setFromSpherical(sph); cam.position.copy(ctl.target).add(off); cam.lookAt(ctl.target);
 }
 
-function enroll(run) {
-  const b = $('bReg');
-  lockMsg('NO FACE REGISTERED YET. LOOK STRAIGHT AT THE CAMERA, THEN PRESS REGISTER.');
-  b.hidden = false;
-  b.onclick = async () => {
-    b.hidden = true; lockMsg('HOLD STILL... CAPTURING');
-    const got = [];
-    for (let i = 0; i < 40 && got.length < 5 && run === gateRun; i++) {
-      const d = await detect(); if (d) got.push(d.descriptor);
-      await sleep(250);
+// ---------- hand control: rotate, move and zoom the model with your hand ----------
+const HAND_MODEL = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+const HS = { on: false, busy: false, lm: null, stream: null, lastT: -1, pose: '', stable: 0, last: null, sm: null, pz: null, pinch: [false, false], prevAuto: true, err: false };
+const hVid = $('handVid'), hCv = $('handCv'), hCtx = hCv.getContext('2d');
+const HCONN = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+const hd = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const POSE_TXT = {
+  pinch: 'PINCH: rotating the model', fist: 'FIST: moving the model', palm: 'OPEN PALM: hand UP = zoom in, DOWN = zoom out',
+  two: 'TWO HANDS PINCHING: spread = zoom in, close = zoom out', none: 'Pinch = rotate | Fist = move | Palm up/down = zoom'
+};
+
+function panBy(dx, dy) {                       // dx, dy: how far the hand moved, as a fraction of the camera picture
+  const dist = cam.position.distanceTo(ctl.target);
+  const perPx = 2 * dist * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) / view.clientHeight;
+  cam.updateMatrixWorld();
+  const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+  const mv = right.multiplyScalar(-dx * view.clientWidth * perPx).add(up.multiplyScalar(dy * view.clientHeight * perPx));
+  ctl.target.add(mv); cam.position.add(mv);
+  if (ctl.target.length() > 3) { const back = ctl.target.clone().setLength(3).sub(ctl.target); ctl.target.add(back); cam.position.add(back); }
+}
+function zoomBy(f) {
+  const off = cam.position.clone().sub(ctl.target).multiplyScalar(f);
+  cam.position.copy(ctl.target).add(off);
+}
+function classifyHand(P, slot) {
+  const palm = hd(P[0], P[9]) || 1;
+  const r = hd(P[4], P[8]) / palm;             // thumb tip to index tip, compared with the size of the palm
+  HS.pinch[slot] = HS.pinch[slot] ? r < 0.45 : r < 0.28;
+  if (HS.pinch[slot]) return 'pinch';
+  const ext = (t, p) => hd(P[t], P[0]) > hd(P[p], P[0]) * 1.15;
+  const e = [ext(8, 6), ext(12, 10), ext(16, 14), ext(20, 18)];
+  if (!e[0] && !e[1] && !e[2] && !e[3]) return 'fist';
+  if (e[0] && e[1] && e[2] && e[3]) return 'palm';
+  return 'none';
+}
+function drawHands(hands, vw, vh) {
+  hCtx.clearRect(0, 0, hCv.width, hCv.height);
+  const k = hCv.width / vw;
+  hands.forEach(h => {
+    const col = h.pose === 'none' ? '#00e5ff' : '#7cffb2';
+    hCtx.strokeStyle = col; hCtx.fillStyle = col; hCtx.lineWidth = 2;
+    hCtx.beginPath();
+    HCONN.forEach(([a, b]) => { hCtx.moveTo(h.P[a].x * k, h.P[a].y * k); hCtx.lineTo(h.P[b].x * k, h.P[b].y * k); });
+    hCtx.stroke();
+    h.P.forEach(p => { hCtx.beginPath(); hCtx.arc(p.x * k, p.y * k, 3, 0, 6.3); hCtx.fill(); });
+  });
+}
+function processHands(lms) {
+  const vw = hVid.videoWidth, vh = hVid.videoHeight;
+  const hands = lms.slice(0, 2).map((L, i) => {
+    const P = L.map(p => ({ x: (1 - p.x) * vw, y: p.y * vh }));       // mirrored, like a mirror
+    return { P, pose: classifyHand(P, i) };
+  });
+  drawHands(hands, vw, vh);
+  const mid = h => ({ x: (h.P[4].x + h.P[8].x) / 2, y: (h.P[4].y + h.P[8].y) / 2 });
+  let shown;
+  if (hands.length === 2 && hands[0].pose === 'pinch' && hands[1].pose === 'pinch') {
+    const d = hd(mid(hands[0]), mid(hands[1])), prev = HS.pz;
+    HS.pz = prev ? prev + (d - prev) * 0.5 : d;
+    if (prev) zoomBy(Math.min(1.1, Math.max(0.9, Math.pow(prev / HS.pz, 1.6))));
+    HS.pose = 'two'; HS.last = null; HS.sm = null; shown = 'two';
+  } else {
+    HS.pz = null;
+    if (!hands.length) { HS.pose = ''; HS.last = null; HS.sm = null; shown = 'none'; }
+    else {
+      const h = hands[0];
+      if (h.pose !== HS.pose) { HS.pose = h.pose; HS.stable = 0; HS.last = null; HS.sm = null; } else HS.stable++;
+      const ref = h.pose === 'pinch' ? mid(h) : h.P[9];
+      HS.sm = HS.sm ? { x: HS.sm.x + (ref.x - HS.sm.x) * 0.5, y: HS.sm.y + (ref.y - HS.sm.y) * 0.5 } : { x: ref.x, y: ref.y };
+      if (HS.stable >= 3 && HS.last) {                                   // only after the pose has been steady for a moment
+        const dx = (HS.sm.x - HS.last.x) / vw, dy = (HS.sm.y - HS.last.y) / vh;
+        if (h.pose === 'pinch') orbitBy(-dx * 3.6, -dy * 2.6);
+        else if (h.pose === 'fist') panBy(dx, dy);
+        else if (h.pose === 'palm') zoomBy(Math.min(1.1, Math.max(0.9, Math.exp(dy * 4))));
+      }
+      HS.last = { x: HS.sm.x, y: HS.sm.y };
+      shown = h.pose;
     }
-    if (got.length < 5) { lockMsg('COULD NOT SEE YOUR FACE CLEARLY. TRY AGAIN WITH BETTER LIGHT.', 'bad'); b.hidden = false; return; }
-    const avg = new Array(128).fill(0);
-    for (const d of got) for (let i = 0; i < 128; i++) avg[i] += d[i] / got.length;
-    const r = await fetch('/api/face', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(avg) });
-    if (!r.ok) { lockMsg('COULD NOT SAVE YOUR FACE (HTTP ' + r.status + ')', 'bad'); b.hidden = false; return; }
-    unlock();
+  }
+  const t = !hands.length ? 'No hand seen. Hold your hand in front of the camera.' : POSE_TXT[shown];
+  if ($('handPose').textContent !== t) $('handPose').textContent = t;
+}
+function handLoop() {
+  if (!HS.on) return;
+  requestAnimationFrame(handLoop);
+  if (!HS.lm || hVid.readyState < 2 || hVid.currentTime === HS.lastT) return;
+  HS.lastT = hVid.currentTime;
+  try { processHands(HS.lm.detectForVideo(hVid, performance.now()).landmarks || []); }
+  catch (e) { if (!HS.err) { HS.err = true; log('ERROR > hand tracking: ' + (e.message || e)); } }
+}
+async function startHand() {
+  if (HS.busy || HS.on) return;
+  if (FS.on || FS.busy) stopFace(false);                  // hand and face tracking take turns
+  HS.busy = true; HS.err = false;
+  say('Starting hand tracking. Allow the camera if Chrome asks.');
+  try {
+    HS.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+    hVid.srcObject = HS.stream; await hVid.play();
+    $('handBox').style.display = 'block'; sideBoxes();
+    $('handPose').textContent = 'Loading the hand model (the first time takes a moment)...';
+    if (!HS.lm) {
+      const { vis, files } = await mpVision();
+      const opts = d => ({ baseOptions: { modelAssetPath: HAND_MODEL, delegate: d }, runningMode: 'VIDEO', numHands: 2 });
+      try { HS.lm = await vis.HandLandmarker.createFromOptions(files, opts('GPU')); }
+      catch (e) { HS.lm = await vis.HandLandmarker.createFromOptions(files, opts('CPU')); }
+    }
+    HS.prevAuto = ctl.autoRotate; ctl.autoRotate = false; $('bSpin').classList.remove('on');
+    HS.on = true; HS.lastT = -1; HS.pose = ''; HS.last = null; HS.sm = null; HS.pz = null;
+    $('bHand').classList.add('on'); tick('hand tracking ready');
+    $('handPose').textContent = POSE_TXT.none;
+    say('Hand tracking is on. Pinch with your thumb and finger and move your hand to rotate the model. Make a fist and move it to move the model. Open your palm and move it up or down to zoom. You can also pinch with both hands and spread them apart to zoom.');
+    handLoop();
+  } catch (e) {
+    stopHand(false);
+    say(e && e.name === 'NotAllowedError' ? 'The camera is blocked. Click the camera icon in the address bar, allow it, and try again.' : 'Hand tracking could not start: ' + ((e && e.message) || e));
+  }
+  HS.busy = false;
+}
+function stopHand(announce = true) {
+  const wasOn = HS.on; HS.on = false;
+  if (HS.stream) { HS.stream.getTracks().forEach(t => t.stop()); HS.stream = null; }
+  hVid.srcObject = null; hCtx.clearRect(0, 0, hCv.width, hCv.height);
+  $('handBox').style.display = 'none'; sideBoxes();
+  $('bHand').classList.remove('on');
+  if (wasOn) { ctl.autoRotate = HS.prevAuto; $('bSpin').classList.toggle('on', HS.prevAuto); if (announce) say('Hand tracking off.'); }
+}
+function toggleHand() { if (HS.on || HS.busy) stopHand(); else startHand(); }
+$('bHand').onclick = toggleHand;
+
+// ---------- face tracking: move your head to look around the model ----------
+const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+const FS = { on: false, busy: false, lm: null, stream: null, lastT: -1, base: null, cal: [], theta0: 0, phi0: 1, dist0: 4, sm: null, spin: false, mouthSince: 0, mouthDone: false, prevAuto: true, err: false, lost: 0, txt: '' };
+const fVid = $('faceVid'), fCv = $('faceCv'), fCtx = fCv.getContext('2d');
+const clampN = (v, a, b) => Math.min(b, Math.max(a, v));
+const deadZone = (v, d) => Math.abs(v) < d ? 0 : v - Math.sign(v) * d;     // tiny head movements are ignored
+const FACE_HELP = 'Turn head = rotate | Nod = tilt | Lean in/out = zoom | Mouth open = spin on/off';
+function setFaceText(t) { if (FS.txt !== t) { FS.txt = t; $('facePose').textContent = t; } }
+function faceMetrics(L, vw, vh) {
+  const P = i => ({ x: L[i].x * vw, y: L[i].y * vh, z: L[i].z * vw });
+  let a = P(234), b = P(454);                          // the two sides of the face
+  if (b.x < a.x) { const t = a; a = b; b = t; }          // a = left in the picture, b = right in the picture
+  const top = P(10), chin = P(152);
+  return {
+    yaw: Math.atan2(b.z - a.z, b.x - a.x),               // > 0 when you turn your head to YOUR left
+    pitch: Math.atan2(top.z - chin.z, chin.y - top.y),   // > 0 when you look up
+    size: Math.hypot(b.x - a.x, b.y - a.y)               // bigger when you lean toward the camera
   };
 }
-
-async function faceGate() {
-  const run = ++gateRun; stopCam();
-  $('bReg').hidden = true; $('bRetry').hidden = true;
-  try {
-    if (!window.faceapi) { lockMsg('LOADING FACE ENGINE...'); await loadScript(FACE_LIB); }
-    lockMsg('LOADING FACE MODELS...');
-    const n = faceapi.nets;
-    await Promise.all([n.tinyFaceDetector.loadFromUri(FACE_MODELS), n.faceLandmark68Net.loadFromUri(FACE_MODELS), n.faceRecognitionNet.loadFromUri(FACE_MODELS)]);
-    lockMsg('STARTING CAMERA...');
-    camStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
-    camEl.srcObject = camStream; await camEl.play();
-    const r = await fetch('/api/face', { cache: 'no-store' });
-    if (r.status === 404) return enroll(run);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return verify(new Float32Array(await r.json()), run);
-  } catch (e) {
-    const noCam = e && (e.name === 'NotAllowedError' || e.name === 'NotFoundError' || e.name === 'NotReadableError');
-    lockMsg(noCam ? 'CAMERA NOT AVAILABLE. Allow the camera (padlock icon in the address bar) and check that no other app is using it, then press RETRY. (Or start the script with -NoFace to skip Face ID.)' : 'FACE ID ERROR: ' + (e.message || e) + '  |  You can start the script with -NoFace to skip Face ID.', 'bad');
-    $('bRetry').hidden = false;
-  }
+function faceRecenter() {
+  if (!FS.on) return say('Face tracking is off. Press FACE first.', false);
+  FS.base = null; FS.cal = [];
+  setFaceText('Centring: look straight at the screen and hold still...');
 }
-$('bRetry').onclick = faceGate;
+function processFace(res) {
+  const vw = fVid.videoWidth, vh = fVid.videoHeight;
+  fCtx.clearRect(0, 0, fCv.width, fCv.height);
+  const L = res.faceLandmarks && res.faceLandmarks[0];
+  if (!L) { if (++FS.lost > 8) setFaceText('No face seen. Look at the camera.'); return; }
+  FS.lost = 0;
+  const k = fCv.width / vw;
+  fCtx.fillStyle = '#00e5ff';
+  for (let i = 0; i < L.length; i++) fCtx.fillRect((1 - L[i].x) * vw * k - 0.7, L[i].y * vh * k - 0.7, 1.5, 1.5);   // mirrored, like a mirror
+  fCtx.fillStyle = '#7cffb2';
+  for (const i of [1, 10, 152, 234, 454]) { fCtx.beginPath(); fCtx.arc((1 - L[i].x) * vw * k, L[i].y * vh * k, 3, 0, 6.3); fCtx.fill(); }
+  const m = faceMetrics(L, vw, vh);
+  if (!FS.base) {                                         // learn what "looking straight at the screen" is for you
+    FS.cal.push(m);
+    if (FS.cal.length < 12) return setFaceText('Centring: look straight at the screen and hold still...');
+    const avg = key => FS.cal.reduce((s, c) => s + c[key], 0) / FS.cal.length;
+    FS.base = { yaw: avg('yaw'), pitch: avg('pitch'), size: avg('size') };
+    const sph = new THREE.Spherical().setFromVector3(cam.position.clone().sub(ctl.target));
+    FS.theta0 = sph.theta; FS.phi0 = sph.phi; FS.dist0 = sph.radius;
+    FS.sm = { theta: sph.theta, phi: sph.phi, dist: sph.radius };
+    log('FACE    > centred. ' + FACE_HELP);
+  }
+  // mouth open (held for half a second) switches the spin on or off
+  const bs = res.faceBlendshapes && res.faceBlendshapes[0] && res.faceBlendshapes[0].categories;
+  const jaw = bs ? ((bs.find(c => c.categoryName === 'jawOpen') || {}).score || 0) : 0, now = performance.now();
+  if (jaw > 0.55) {
+    if (!FS.mouthSince) FS.mouthSince = now;
+    else if (!FS.mouthDone && now - FS.mouthSince > 500) { FS.mouthDone = true; FS.spin = !FS.spin; say(FS.spin ? 'Spinning.' : 'Spin stopped.', false); }
+  } else if (jaw < 0.3) { FS.mouthSince = 0; FS.mouthDone = false; }
+  if (FS.spin) FS.theta0 += 0.012;
+  // head turn and nod look around the model, leaning in or out zooms
+  const tTheta = FS.theta0 - deadZone(m.yaw - FS.base.yaw, 0.05) * 2.4;
+  const tPhi = clampN(FS.phi0 - deadZone(m.pitch - FS.base.pitch, 0.05) * 2.0, 0.15, Math.PI - 0.15);
+  const tDist = clampN(FS.dist0 / Math.pow(clampN(m.size / FS.base.size, 0.5, 2), 1.3), ctl.minDistance, ctl.maxDistance);
+  const s = FS.sm;
+  s.theta += (tTheta - s.theta) * 0.3; s.phi += (tPhi - s.phi) * 0.3; s.dist += (tDist - s.dist) * 0.3;
+  cam.position.copy(ctl.target).add(new THREE.Vector3().setFromSpherical(new THREE.Spherical(s.dist, s.phi, s.theta)));
+  cam.lookAt(ctl.target);
+  setFaceText(FACE_HELP + (FS.spin ? '  [SPINNING]' : '') + (jaw > 0.55 ? '  [MOUTH OPEN]' : ''));
+}
+function faceLoop() {
+  if (!FS.on) return;
+  requestAnimationFrame(faceLoop);
+  if (!FS.lm || fVid.readyState < 2 || fVid.currentTime === FS.lastT) return;
+  FS.lastT = fVid.currentTime;
+  try { processFace(FS.lm.detectForVideo(fVid, performance.now())); }
+  catch (e) { if (!FS.err) { FS.err = true; log('ERROR > face tracking: ' + (e.message || e)); } }
+}
+async function startFace() {
+  if (FS.busy || FS.on) return;
+  if (HS.on || HS.busy) stopHand(false);                  // hand and face tracking take turns
+  FS.busy = true; FS.err = false;
+  say('Starting face tracking. Allow the camera if Chrome asks.');
+  try {
+    FS.stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+    fVid.srcObject = FS.stream; await fVid.play();
+    $('faceBox').style.display = 'block'; sideBoxes();
+    setFaceText('Loading the face model (the first time takes a moment)...');
+    if (!FS.lm) {
+      const { vis, files } = await mpVision();
+      const opts = d => ({ baseOptions: { modelAssetPath: FACE_MODEL, delegate: d }, runningMode: 'VIDEO', numFaces: 1, outputFaceBlendshapes: true });
+      try { FS.lm = await vis.FaceLandmarker.createFromOptions(files, opts('GPU')); }
+      catch (e) { FS.lm = await vis.FaceLandmarker.createFromOptions(files, opts('CPU')); }
+    }
+    FS.prevAuto = ctl.autoRotate; ctl.autoRotate = false; $('bSpin').classList.remove('on');
+    FS.on = true; FS.lastT = -1; FS.base = null; FS.cal = []; FS.sm = null; FS.spin = false; FS.lost = 0; FS.mouthSince = 0; FS.mouthDone = false;
+    $('bFace').classList.add('on'); $('bCenter').hidden = false; tick('face tracking ready');
+    setFaceText('Centring: look straight at the screen and hold still...');
+    say('Face tracking is on. Look straight at the screen for a second to centre. Then turn your head to look around the model, nod to tilt it, lean closer to zoom in and lean back to zoom out. Open your mouth to start or stop the spin. Press CENTER to centre again.');
+    faceLoop();
+  } catch (e) {
+    stopFace(false);
+    say(e && e.name === 'NotAllowedError' ? 'The camera is blocked. Click the camera icon in the address bar, allow it, and try again.' : 'Face tracking could not start: ' + ((e && e.message) || e));
+  }
+  FS.busy = false;
+}
+function stopFace(announce = true) {
+  const wasOn = FS.on; FS.on = false;
+  if (FS.stream) { FS.stream.getTracks().forEach(t => t.stop()); FS.stream = null; }
+  fVid.srcObject = null; fCtx.clearRect(0, 0, fCv.width, fCv.height);
+  $('faceBox').style.display = 'none'; sideBoxes();
+  $('bFace').classList.remove('on'); $('bCenter').hidden = true;
+  if (wasOn) { ctl.autoRotate = FS.prevAuto; $('bSpin').classList.toggle('on', FS.prevAuto); if (announce) say('Face tracking off.'); }
+}
+function toggleFace() { if (FS.on || FS.busy) stopFace(); else startFace(); }
+$('bFace').onclick = toggleFace; $('bCenter').onclick = faceRecenter;
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'g') toggleHand(); else if (e.key === 'v') toggleFace(); else if (e.key === 'c') faceRecenter();
+});
 
-// ---------- start (runs only after face unlock) ----------
+// ---------- voice: say "Hey Jarvis, ..." ----------
+const WK = { on: false, rec: null, awakeUntil: 0, warned: false };
+const WAKE_RE = /\b(?:hey|hay|hi|okay|ok)[\s,]+(?:jarvis|jervis|garvis)\b[\s,.:!?-]*|^jarvis\b[\s,.:!?-]*/;
+function onHeard(text) {
+  const t = text.toLowerCase().trim(); if (!t) return;
+  const m = t.match(WAKE_RE), talking = 'speechSynthesis' in window && speechSynthesis.speaking;
+  let cmd = null;
+  if (m) { cmd = t.slice(m.index + m[0].length).trim(); if (talking) speechSynthesis.cancel(); }   // you can interrupt me with the wake word
+  else if (!talking && performance.now() < WK.awakeUntil) cmd = t;                                 // right after a bare "hey Jarvis"
+  if (cmd === null) return;                                                                         // not meant for me
+  log('HEARD   > ' + text);
+  if (!cmd) { WK.awakeUntil = performance.now() + 9000; say('Yes?'); return; }
+  WK.awakeUntil = 0; handle(cmd);
+}
+function startListen(auto) {
+  if (WK.on) return;
+  if (!SR) { if (!auto) say('Voice input needs Google Chrome.'); return; }
+  WK.on = true;
+  const r = new SR(); r.lang = 'en-US'; r.continuous = true; r.interimResults = false;
+  r.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) onHeard(e.results[i][0].transcript); };
+  r.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') {
+      stopListen();
+      if (!WK.warned) { WK.warned = true; say(e.error === 'audio-capture' ? 'I cannot find a microphone, so voice is off.' : 'The microphone is blocked, so voice is off. Click the padlock icon in the address bar, allow the microphone, then press LISTEN.'); }
+    }
+  };
+  r.onend = () => { if (WK.on && WK.rec === r) setTimeout(() => { try { r.start(); } catch (e) {} }, 400); };   // Chrome stops listening now and then: start again
+  WK.rec = r;
+  try { r.start(); } catch (e) {}
+  $('bListen').classList.add('on');
+  if (!auto) say('Listening. Say: Hey Jarvis, bring up everything on arc reactor 2.');
+  else log('VOICE   > Listening. Say: Hey Jarvis, bring up everything on arc reactor 2.   (LISTEN button turns it off)');
+}
+function stopListen(announce) {
+  const was = WK.on; WK.on = false;
+  if (WK.rec) { try { WK.rec.stop(); } catch (e) {} WK.rec = null; }
+  $('bListen').classList.remove('on');
+  if (was && announce) say('Voice is off.', false);
+}
+$('bListen').onclick = () => { if (WK.on) stopListen(true); else { WK.warned = false; startListen(false); } };
+
+// ---------- start ----------
 function startApp() {
 const h = new Date().getHours();
 say(`${h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'}. Opening the engine model.`);
-fetch('/api/models', { cache: 'no-store' }).then(r => r.json()).then(info => {
+log('WEB VERSION > Put your .glb files in the repository folder named models. Use OPEN if a model is missing.');
+getModelInfo().then(info => {
   for (const k in M) { const f = info[M[k].file]; log((f ? 'OK      ' : 'MISSING ') + M[k].file + (f && f !== M[k].file ? '  (using ' + f + ')' : '')); }
 }).catch(() => {});
 (async () => {
   if (await enginePre) { show('engine'); say('Engine online. The car and arc reactors load when you open them.'); }
   else {
-    say((M.engine.state === 'missing' ? "I can't find Car_Engine.glb next to the script." : "I couldn't load the engine model. See the error above.") + ' Press 1 or OPEN to choose it from your computer.');
+    say((M.engine.state === 'missing' ? "I can't find Car_Engine.glb next to the script." : "I couldn't load the engine model. See the error above.") + ' You can still use the OPEN button to pick a model file.');
     $('label').textContent = 'NO ENGINE MODEL';
   }
 })();
+startListen(true);
 }
-const enginePre = load('engine');   // download and prepare the engine while Face ID checks you
-if (NO_FACE) { locked = false; lockEl.style.display = 'none'; appEl.inert = false; startApp(); }
-else faceGate();
+const enginePre = load('engine');   // download and prepare the engine right away
+// the other models: no file = no button; with -Preload they also load one after another in the background
+(async () => {
+  let info = {};
+  try { info = await getModelInfo(); } catch (e) {}
+  const btn = { car: 'bCar', arc: 'bArc', arc2: 'bArc2' };
+  for (const k of ['car', 'arc', 'arc2']) {
+    if (!info[M[k].file]) { M[k].state = 'missing'; $(btn[k]).style.display = 'none'; }   // no file: no button
+  }
+  await enginePre;
+  if (!PRELOAD) return;
+  for (const k of ['car', 'arc', 'arc2']) {
+    if (M[k].state === 'missing') continue;
+    await sleep(300);
+    const ok = await load(k);
+    if (ok && active === k) show(k);
+  }
+  const ready = Object.keys(M).filter(k => M[k].state === 'ready').map(k => M[k].title);
+  log('READY > ' + ready.join(', '));
+})();
+startApp();
 </script>
 </body>
 </html>
